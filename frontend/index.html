@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="upload-section items-center">
+        <input type="file" id="image-upload" accept="image/*" />
+        <input type="file" id="video-upload" accept="video/*" />
+        <button onclick="generateArt()">Generate Art</button>
+        <div id="preview-area"></div>
+        <div id="progress-bar"></div>
+    </div>
+    <div id="result-section" style="display:none;">
+        <img id="generated-art" />
+    </div>
+</body>
+</html>
