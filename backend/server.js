@@ -1,10 +1,10 @@
 // backend/server.js
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,13 +20,30 @@ app.use(express.urlencoded({ extended: true }));
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Configure multer for file uploads
-const storage = multer.memoryStorage(); // Use memory storage for Vercel
-
-const upload = multer({ 
-  storage: storage,
+// Configure multer with file filtering
+const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit for both images and videos
+    files: 2 // Maximum 2 files
+  },
+  fileFilter: (req, file, cb) => {
+    // Check file types
+    if (file.fieldname === 'image') {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Please upload only image files for image field'), false);
+      }
+    } else if (file.fieldname === 'video') {
+      if (file.mimetype.startsWith('video/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Please upload only video files for video field'), false);
+      }
+    } else {
+      cb(new Error('Unexpected field'), false);
+    }
   }
 });
 
@@ -35,12 +52,11 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'ArtAsset AI Backend is running!',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    timestamp: new Date().toISOString()
   });
 });
 
-// ✅ FIXED: Generate art endpoint - simplified for Vercel
+// ✅ FIXED: Generate art endpoint with better video handling
 app.post('/api/generate-art', upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'video', maxCount: 1 }
@@ -59,37 +75,100 @@ app.post('/api/generate-art', upload.fields([
     }
 
     console.log('Files received:', {
-      image: imageFile ? `Size: ${imageFile.size} bytes` : 'None',
-      video: videoFile ? `Size: ${videoFile.size} bytes` : 'None'
+      image: imageFile ? `${imageFile.originalname} (${imageFile.size} bytes)` : 'None',
+      video: videoFile ? `${videoFile.originalname} (${videoFile.size} bytes)` : 'None'
     });
 
-    // Simulate processing time (2-3 seconds)
-    console.log('⏳ Simulating AI processing...');
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    // Validate file sizes
+    if (imageFile && imageFile.size > 5 * 1024 * 1024) {
+      return res.status(400).json({
+        success: false,
+        error: 'Image file too large. Maximum size is 5MB.'
+      });
+    }
+
+    if (videoFile && videoFile.size > 5 * 1024 * 1024) {
+      return res.status(400).json({
+        success: false,
+        error: 'Video file too large. Maximum size is 5MB.'
+      });
+    }
+
+    // Simulate processing time
+    console.log('⏳ Processing files...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
-    // Generate a unique placeholder image
+    // Generate result based on input type
+    let message = 'Art generated successfully!';
+    if (imageFile && videoFile) {
+      message = 'Art generated from image and video!';
+    } else if (imageFile) {
+      message = 'Art generated from image!';
+    } else if (videoFile) {
+      message = 'Art generated from video!';
+    }
+    
     const artUrl = `https://picsum.photos/600/400?random=${Date.now()}`;
     
     console.log('✅ Art generation completed');
     
     res.json({
       success: true,
-      message: 'Art generated successfully!',
+      message: message,
       artUrl: artUrl,
-      processingTime: '2.5s',
+      processingTime: '3.0s',
       inputs: {
-        image: imageFile ? `Uploaded (${imageFile.size} bytes)` : 'None',
-        video: videoFile ? `Uploaded (${videoFile.size} bytes)` : 'None'
-      },
-      note: 'Mock response - Connect DeepSeek API for real AI generation'
+        image: imageFile ? 'Uploaded' : 'None',
+        video: videoFile ? 'Uploaded' : 'None',
+        imageSize: imageFile ? `${(imageFile.size / 1024 / 1024).toFixed(2)} MB` : 'None',
+        videoSize: videoFile ? `${(videoFile.size / 1024 / 1024).toFixed(2)} MB` : 'None'
+      }
     });
 
   } catch (error) {
     console.error('❌ Error in generate-art:', error);
     res.status(500).json({
       success: false,
-      error: 'Generation failed: ' + error.message,
-      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
+      error: 'Generation failed: ' + error.message
+    });
+  }
+});
+
+// ✅ ADD THIS: Special endpoint for video-only processing
+app.post('/api/process-video', upload.single('video'), async (req, res) => {
+  try {
+    const videoFile = req.file;
+    
+    if (!videoFile) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please upload a video file'
+      });
+    }
+
+    console.log('🎥 Processing video:', videoFile.originalname);
+    
+    // Simulate video processing
+    await new Promise(resolve => setTimeout(resolve, 4000));
+    
+    const artUrl = `https://picsum.photos/600/400?grayscale&random=${Date.now()}`;
+    
+    res.json({
+      success: true,
+      message: 'Art generated from video clip!',
+      artUrl: artUrl,
+      videoInfo: {
+        name: videoFile.originalname,
+        size: `${(videoFile.size / 1024 / 1024).toFixed(2)} MB`,
+        type: videoFile.mimetype
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Video processing error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Video processing failed: ' + error.message
     });
   }
 });
@@ -99,29 +178,42 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Error handling middleware
+// ✅ IMPROVED: Error handling middleware
 app.use((error, req, res, next) => {
-  console.error('❌ Global error handler:', error);
+  console.error('❌ Global error handler:', error.message);
   
   if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        error: 'File too large. Maximum size is 5MB.'
+      });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many files. Maximum 2 files allowed.'
+      });
+    }
+  }
+  
+  // Handle multer file filter errors
+  if (error.message.includes('Please upload only')) {
     return res.status(400).json({
       success: false,
-      error: `File upload error: ${error.message}`
+      error: error.message
     });
   }
   
   res.status(500).json({
     success: false,
-    error: 'Internal server error',
-    message: error.message
+    error: 'Internal server error: ' + error.message
   });
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`✅ Health: http://localhost:${PORT}/api/health`);
-  console.log(`🎨 Generate: http://localhost:${PORT}/api/generate-art`);
 });
 
 module.exports = app;

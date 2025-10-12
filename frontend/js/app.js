@@ -6,7 +6,16 @@ document.getElementById('image-upload').addEventListener('change', function(e) {
 });
 
 document.getElementById('video-upload').addEventListener('change', function(e) {
-    previewFile(e.target.files[0], 'video');
+    const file = e.target.files[0];
+    if (file) {
+        // Check file size client-side
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Video file too large. Please select a video under 5MB.');
+            e.target.value = ''; // Clear the input
+            return;
+        }
+        previewFile(file, 'video');
+    }
 });
 
 function previewFile(file, type) {
@@ -16,14 +25,21 @@ function previewFile(file, type) {
         const reader = new FileReader();
         reader.onload = function(e) {
             if (type === 'image') {
-                previewArea.innerHTML = `<img src="${e.target.result}" style="max-width: 300px; max-height: 200px;" alt="Preview" />`;
+                previewArea.innerHTML = `
+                    <div class="preview-item">
+                        <img src="${e.target.result}" alt="Image preview" />
+                        <p>Image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
+                    </div>
+                `;
             } else if (type === 'video') {
                 previewArea.innerHTML = `
-                    <video controls style="max-width: 300px; max-height: 200px;">
-                        <source src="${e.target.result}" type="${file.type}">
-                        Your browser does not support the video tag.
-                    </video>
-                    <p>Video selected: ${file.name}</p>
+                    <div class="preview-item">
+                        <video controls>
+                            <source src="${e.target.result}" type="${file.type}">
+                            Your browser does not support the video tag.
+                        </video>
+                        <p>Video: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
+                    </div>
                 `;
             }
         };
@@ -31,14 +47,24 @@ function previewFile(file, type) {
     }
 }
 
-// Art generation function
-// In your generateArt() function, update the error handling:
+// Main art generation function
 async function generateArt() {
     const imageFile = document.getElementById('image-upload').files[0];
     const videoFile = document.getElementById('video-upload').files[0];
     
     if (!imageFile && !videoFile) {
         alert('Please upload at least one image or video file');
+        return;
+    }
+    
+    // Client-side validation
+    if (imageFile && imageFile.size > 5 * 1024 * 1024) {
+        alert('Image file too large. Maximum size is 5MB.');
+        return;
+    }
+    
+    if (videoFile && videoFile.size > 5 * 1024 * 1024) {
+        alert('Video file too large. Maximum size is 5MB.');
         return;
     }
     
@@ -49,7 +75,6 @@ async function generateArt() {
     // Show progress
     const progressBar = document.getElementById('progress-bar');
     progressBar.style.display = 'block';
-    progressBar.innerHTML = '<div class="progress-fill">Processing your art... (3-5 seconds)</div>';
     
     try {
         console.log('📤 Sending files to server...');
@@ -59,7 +84,13 @@ async function generateArt() {
             body: formData
         });
         
-        console.log('📨 Response status:', response.status);
+        // First, check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server returned invalid response. Please try again.');
+        }
         
         const result = await response.json();
         console.log('📦 Response data:', result);
@@ -95,19 +126,3 @@ function downloadArt() {
     link.download = 'generated-art.png';
     link.click();
 }
-
-// Test backend connection on load
-document.addEventListener('DOMContentLoaded', function() {
-    // Test the health endpoint
-    fetch('/api/health')
-        .then(response => {
-            if (response.ok) {
-                console.log('✅ Backend is connected');
-            } else {
-                console.log('❌ Backend health check failed');
-            }
-        })
-        .catch(error => {
-            console.log('❌ Cannot reach backend:', error.message);
-        });
-});
