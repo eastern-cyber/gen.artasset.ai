@@ -36,18 +36,39 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mock generate art endpoint
-app.post('/api/generate-art', (req, res) => {
-    console.log('📨 Received art generation request');
-    
-    // Simulate processing time
-    setTimeout(() => {
+// Simple working version - use online placeholder
+app.post('/api/generate-art', upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'video', maxCount: 1 }
+]), async (req, res) => {
+    try {
+        console.log('🎨 Processing art generation request...');
+        
+        const imageFile = req.files?.image?.[0];
+        const videoFile = req.files?.video?.[0];
+
+        // Simulate AI processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Use a reliable online placeholder
+        const artUrl = 'https://picsum.photos/600/400'; // Random image each time
+        
         res.json({
             success: true,
             message: 'Art generated successfully!',
-            artUrl: '/mock-art.png', // This should be a real image URL in production
-            note: 'This is a mock response. Connect to DeepSeek API for real generation.'
+            artUrl: artUrl,
+            processingTime: '2.1s',
+            style: 'AI Artistic',
+            note: 'This is a mock response. Connect DeepSeek API for real AI art generation.'
         });
-    }, 2000);
+
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Generation failed: ' + error.message
+        });
+    }
 });
 
 // ✅ ADD THIS: Serve frontend for all other routes
