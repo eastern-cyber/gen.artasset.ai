@@ -32,6 +32,7 @@ function previewFile(file, type) {
 }
 
 // Art generation function
+// In your generateArt() function, update the error handling:
 async function generateArt() {
     const imageFile = document.getElementById('image-upload').files[0];
     const videoFile = document.getElementById('video-upload').files[0];
@@ -51,22 +52,21 @@ async function generateArt() {
     progressBar.innerHTML = '<div class="progress-fill">Processing your art... (3-5 seconds)</div>';
     
     try {
-        console.log('Sending request to /api/generate-art');
+        console.log('📤 Sending files to server...');
         
         const response = await fetch('/api/generate-art', {
             method: 'POST',
             body: formData
         });
         
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server error: ${response.status} - ${errorText}`);
-        }
+        console.log('📨 Response status:', response.status);
         
         const result = await response.json();
-        console.log('Success:', result);
+        console.log('📦 Response data:', result);
+        
+        if (!response.ok) {
+            throw new Error(result.error || `Server error: ${response.status}`);
+        }
         
         if (result.success) {
             document.getElementById('generated-art').src = result.artUrl;
@@ -81,7 +81,7 @@ async function generateArt() {
         }
         
     } catch (error) {
-        console.error('Error:', error);
+        console.error('❌ Error generating art:', error);
         alert('Error: ' + error.message);
     } finally {
         progressBar.style.display = 'none';

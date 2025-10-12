@@ -1,5 +1,4 @@
-// backend/server.js - USE COMMONJS SYNTAX
-
+// backend/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -22,19 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadsDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+const storage = multer.memoryStorage(); // Use memory storage for Vercel
 
 const upload = multer({ 
   storage: storage,
@@ -53,7 +40,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Generate art endpoint
+// ✅ FIXED: Generate art endpoint - simplified for Vercel
 app.post('/api/generate-art', upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'video', maxCount: 1 }
@@ -71,27 +58,38 @@ app.post('/api/generate-art', upload.fields([
       });
     }
 
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log('Files received:', {
+      image: imageFile ? `Size: ${imageFile.size} bytes` : 'None',
+      video: videoFile ? `Size: ${videoFile.size} bytes` : 'None'
+    });
+
+    // Simulate processing time (2-3 seconds)
+    console.log('⏳ Simulating AI processing...');
+    await new Promise(resolve => setTimeout(resolve, 2500));
     
-    // Use a placeholder image
-    const artUrl = 'https://picsum.photos/600/400?random=' + Date.now();
+    // Generate a unique placeholder image
+    const artUrl = `https://picsum.photos/600/400?random=${Date.now()}`;
+    
+    console.log('✅ Art generation completed');
     
     res.json({
       success: true,
       message: 'Art generated successfully!',
       artUrl: artUrl,
+      processingTime: '2.5s',
       inputs: {
-        image: imageFile ? 'Uploaded' : 'None',
-        video: videoFile ? 'Uploaded' : 'None'
-      }
+        image: imageFile ? `Uploaded (${imageFile.size} bytes)` : 'None',
+        video: videoFile ? `Uploaded (${videoFile.size} bytes)` : 'None'
+      },
+      note: 'Mock response - Connect DeepSeek API for real AI generation'
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ Error in generate-art:', error);
     res.status(500).json({
       success: false,
-      error: 'Generation failed: ' + error.message
+      error: 'Generation failed: ' + error.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
     });
   }
 });
@@ -101,23 +99,29 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Error handling
+// Error handling middleware
 app.use((error, req, res, next) => {
+  console.error('❌ Global error handler:', error);
+  
   if (error instanceof multer.MulterError) {
     return res.status(400).json({
       success: false,
-      error: 'File upload error: ' + error.message
+      error: `File upload error: ${error.message}`
     });
   }
+  
   res.status(500).json({
     success: false,
-    error: 'Internal server error'
+    error: 'Internal server error',
+    message: error.message
   });
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`✅ Health: http://localhost:${PORT}/api/health`);
+  console.log(`🎨 Generate: http://localhost:${PORT}/api/generate-art`);
 });
 
 module.exports = app;
