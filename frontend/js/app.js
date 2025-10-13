@@ -57,17 +57,6 @@ async function generateArt() {
         return;
     }
     
-    // Client-side validation
-    if (imageFile && imageFile.size > 5 * 1024 * 1024) {
-        alert('Image file too large. Maximum size is 5MB.');
-        return;
-    }
-    
-    if (videoFile && videoFile.size > 5 * 1024 * 1024) {
-        alert('Video file too large. Maximum size is 5MB.');
-        return;
-    }
-    
     const formData = new FormData();
     if (imageFile) formData.append('image', imageFile);
     if (videoFile) formData.append('video', videoFile);
@@ -75,40 +64,78 @@ async function generateArt() {
     // Show progress
     const progressBar = document.getElementById('progress-bar');
     progressBar.style.display = 'block';
+    progressBar.innerHTML = `
+        <div class="progress-fill" style="width: 0%">
+            <div class="progress-text">Initializing...</div>
+        </div>
+    `;
     
     try {
-        console.log('📤 Sending files to server...');
+        console.log('🚀 Starting real AI generation...');
         
         const response = await fetch('/api/generate-art', {
             method: 'POST',
             body: formData
         });
         
-        // First, check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('❌ Non-JSON response:', text.substring(0, 200));
-            throw new Error('Server returned invalid response. Please try again.');
-        }
-        
-        const result = await response.json();
-        console.log('📦 Response data:', result);
-        
         if (!response.ok) {
-            throw new Error(result.error || `Server error: ${response.status}`);
+            throw new Error(`Server error: ${response.status}`);
         }
         
-        if (result.success) {
-            document.getElementById('generated-art').src = result.artUrl;
-            document.getElementById('result-section').style.display = 'block';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
             
-            // Scroll to result
-            document.getElementById('result-section').scrollIntoView({ 
-                behavior: 'smooth' 
-            });
-        } else {
-            throw new Error(result.error || 'Generation failed');
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.trim());
+            
+            for (const line of lines) {
+                try {
+                    const data = JSON.parse(line);
+                    console.log('📦 Progress update:', data);
+                    
+                    if (data.status === 'processing') {
+                        // Update progress bar
+                        const progressFill = document.querySelector('.progress-fill');
+                        const progressText = document.querySelector('.progress-text');
+                        const width = data.step === 1 ? '30%' : '70%';
+                        
+                        progressFill.style.width = width;
+                        progressText.textContent = data.message;
+                    }
+                    
+                    if (data.success) {
+                        // Final result
+                        document.getElementById('generated-art').src = data.artUrl;
+                        document.getElementById('result-section').style.display = 'block';
+                        
+                        // Add prompt info
+                        const resultSection = document.getElementById('result-section');
+                        if (!document.getElementById('prompt-info')) {
+                            const promptInfo = document.createElement('div');
+                            promptInfo.id = 'prompt-info';
+                            promptInfo.style.marginTop = '10px';
+                            promptInfo.style.fontSize = '14px';
+                            promptInfo.style.color = '#666';
+                            promptInfo.innerHTML = `<strong>AI Prompt:</strong> ${data.prompt}`;
+                            resultSection.appendChild(promptInfo);
+                        }
+                        
+                        // Scroll to result
+                        resultSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                } catch (parseError) {
+                    console.error('Error parsing JSON:', parseError, 'Raw:', line);
+                }
+            }
         }
         
     } catch (error) {
