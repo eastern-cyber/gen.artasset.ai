@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ArtAsset AI Generator</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <!-- or if in subdirectory -->
-    <link rel="stylesheet" href="./css/style.css">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="container">
@@ -23,6 +21,24 @@
                 <input type="file" id="video-upload" accept="video/*" />
             </div>
             
+            <!-- ✅ ADD THIS: Custom Prompt Input -->
+            <div class="upload-group">
+                <label for="prompt-input">Custom AI Prompt (Optional):</label>
+                <textarea 
+                    id="prompt-input" 
+                    placeholder="Describe the art style, colors, theme, or specific elements you want... 
+Examples: 
+• 'vibrant anime style with glowing effects'
+• 'oil painting in renaissance style'
+• 'cyberpunk neon cityscape'
+• 'watercolor landscape with pastel colors'"
+                    rows="4"
+                ></textarea>
+                <div class="prompt-tips">
+                    <strong>Prompt Tips:</strong> Be specific about style, colors, mood, and composition for better results!
+                </div>
+            </div>
+            
             <button onclick="generateArt()" class="generate-btn">Generate Art</button>
             
             <div id="preview-area" class="preview-area"></div>
@@ -32,12 +48,15 @@
         <div id="result-section" class="result-section" style="display:none;">
             <h2>Generated Art</h2>
             <img id="generated-art" class="generated-art" />
+            <div class="result-info">
+                <p><strong>AI Prompt Used:</strong> <span id="used-prompt"></span></p>
+                <p><strong>Style:</strong> <span id="art-style"></span></p>
+            </div>
             <button onclick="downloadArt()" class="download-btn">Download Art</button>
+            <button onclick="regenerateArt()" class="generate-btn" style="margin-left: 10px;">Regenerate with Changes</button>
         </div>
     </div>
 
-    <script src="/js/app.js"></script>
-    <!-- or if in subdirectory -->
-    <script src="./js/app.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
