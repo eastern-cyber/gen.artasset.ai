@@ -12,19 +12,26 @@ const otpInput = document.getElementById('otp-input');
 const sendOtpBtn = document.getElementById('send-otp-btn');
 const verifyOtpBtn = document.getElementById('verify-otp-btn');
 const backToEmailBtn = document.getElementById('back-to-email-btn');
+const resendOtpBtn = document.getElementById('resend-otp-btn');
 const authMessage = document.getElementById('auth-message');
 const logoutBtn = document.getElementById('logout-btn');
+const userEmailSpan = document.getElementById('user-email');
+const otpTimer = document.getElementById('otp-timer');
 
 // State variables
 let currentEmail = '';
-let generatedOtp = '';
+let otpExpiryTime = null;
+let otpTimerInterval = null;
 let isLoggedIn = false;
 
-// Check if user is already logged in (from localStorage)
+// Check if user is already logged in
 function checkLoginStatus() {
     const savedLogin = localStorage.getItem('artAssetLoggedIn');
-    if (savedLogin === 'true') {
+    const savedEmail = localStorage.getItem('artAssetUserEmail');
+    
+    if (savedLogin === 'true' && savedEmail) {
         isLoggedIn = true;
+        currentEmail = savedEmail;
         showApp();
     }
 }
@@ -38,46 +45,81 @@ function showAuthMessage(message, type) {
     }
 }
 
-// Generate a random 6-digit OTP
-function generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+// Start OTP timer (2 minutes)
+function startOtpTimer() {
+    let timeLeft = 120; // 2 minutes in seconds
+    
+    // Clear existing timer
+    if (otpTimerInterval) {
+        clearInterval(otpTimerInterval);
+    }
+    
+    otpTimerInterval = setInterval(() => {
+        timeLeft--;
+        
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        otpTimer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(otpTimerInterval);
+            otpTimer.textContent = '00:00';
+            resendOtpBtn.style.display = 'block';
+            showAuthMessage('OTP has expired. Please request a new one.', 'error');
+        }
+        
+        if (timeLeft === 30) {
+            showAuthMessage('OTP will expire in 30 seconds!', 'error');
+        }
+    }, 1000);
 }
 
-// Simulate sending OTP to email (in a real app, this would call a backend API)
-function sendOTP(email) {
-    // In a real application, you would:
-    // 1. Call a serverless function on Vercel that sends the OTP via email
-    // 2. Use a service like SendGrid, Resend, or AWS SES
-    // 3. Store the OTP in a secure way (like a server-side session or database)
-    
-    // For this demo, we'll simulate the process
-    generatedOtp = generateOTP();
-    console.log(`OTP for ${email}: ${generatedOtp}`); // In production, remove this line
-    
-    // Simulate API call delay
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // In a real app, this would be the response from your backend
-            resolve({ success: true });
-        }, 1500);
-    });
+// Real OTP sending using Vercel serverless function
+async function sendOTP(email) {
+    try {
+        const response = await fetch('/api/send-otp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to send OTP');
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error sending OTP:', error);
+        throw error;
+    }
 }
 
-// Verify OTP (in a real app, this would call a backend API)
-function verifyOTP(email, otp) {
-    // In a real application, you would:
-    // 1. Call a serverless function on Vercel that verifies the OTP
-    // 2. Compare with the stored OTP for that email
-    // 3. Create a session or JWT token for the user
-    
-    // For this demo, we'll simulate the process
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // In a real app, this would be the response from your backend
-            const isValid = otp === generatedOtp;
-            resolve({ success: isValid });
-        }, 1500);
-    });
+// Real OTP verification using Vercel serverless function
+async function verifyOTP(email, otp) {
+    try {
+        const response = await fetch('/api/verify-otp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, otp })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to verify OTP');
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error verifying OTP:', error);
+        throw error;
+    }
 }
 
 // Handle Send OTP button click
@@ -96,6 +138,7 @@ sendOtpBtn.addEventListener('click', async () => {
     
     // Show loading state
     sendOtpBtn.textContent = 'Sending...';
+    sendOtpBtn.classList.add('loading');
     sendOtpBtn.disabled = true;
     showAuthMessage('');
     
@@ -106,15 +149,21 @@ sendOtpBtn.addEventListener('click', async () => {
             currentEmail = email;
             emailStep.classList.add('hidden');
             otpStep.classList.remove('hidden');
-            showAuthMessage(`OTP sent to ${email}. Please check your inbox.`, 'success');
+            resendOtpBtn.style.display = 'none';
+            
+            // Start OTP timer
+            startOtpTimer();
+            
+            showAuthMessage(`OTP sent to ${email}. Please check your inbox (and spam folder).`, 'success');
         } else {
             showAuthMessage('Failed to send OTP. Please try again.', 'error');
         }
     } catch (error) {
         console.error('Error sending OTP:', error);
-        showAuthMessage('An error occurred. Please try again.', 'error');
+        showAuthMessage(error.message || 'An error occurred. Please try again.', 'error');
     } finally {
         sendOtpBtn.textContent = 'Send OTP';
+        sendOtpBtn.classList.remove('loading');
         sendOtpBtn.disabled = false;
     }
 });
@@ -130,6 +179,7 @@ verifyOtpBtn.addEventListener('click', async () => {
     
     // Show loading state
     verifyOtpBtn.textContent = 'Verifying...';
+    verifyOtpBtn.classList.add('loading');
     verifyOtpBtn.disabled = true;
     showAuthMessage('');
     
@@ -139,6 +189,13 @@ verifyOtpBtn.addEventListener('click', async () => {
         if (result.success) {
             isLoggedIn = true;
             localStorage.setItem('artAssetLoggedIn', 'true');
+            localStorage.setItem('artAssetUserEmail', currentEmail);
+            
+            // Clear timer
+            if (otpTimerInterval) {
+                clearInterval(otpTimerInterval);
+            }
+            
             showAuthMessage('Login successful!', 'success');
             
             // Transition to app after a brief delay
@@ -150,10 +207,42 @@ verifyOtpBtn.addEventListener('click', async () => {
         }
     } catch (error) {
         console.error('Error verifying OTP:', error);
-        showAuthMessage('An error occurred. Please try again.', 'error');
+        showAuthMessage(error.message || 'An error occurred. Please try again.', 'error');
     } finally {
         verifyOtpBtn.textContent = 'Verify OTP';
+        verifyOtpBtn.classList.remove('loading');
         verifyOtpBtn.disabled = false;
+    }
+});
+
+// Handle Resend OTP button click
+resendOtpBtn.addEventListener('click', async () => {
+    if (!currentEmail) return;
+    
+    resendOtpBtn.textContent = 'Resending...';
+    resendOtpBtn.disabled = true;
+    showAuthMessage('');
+    
+    try {
+        const result = await sendOTP(currentEmail);
+        
+        if (result.success) {
+            resendOtpBtn.style.display = 'none';
+            otpInput.value = '';
+            
+            // Restart timer
+            startOtpTimer();
+            
+            showAuthMessage('New OTP sent successfully!', 'success');
+        } else {
+            showAuthMessage('Failed to resend OTP. Please try again.', 'error');
+        }
+    } catch (error) {
+        console.error('Error resending OTP:', error);
+        showAuthMessage(error.message || 'An error occurred. Please try again.', 'error');
+    } finally {
+        resendOtpBtn.textContent = 'Resend OTP';
+        resendOtpBtn.disabled = false;
     }
 });
 
@@ -162,6 +251,13 @@ backToEmailBtn.addEventListener('click', () => {
     otpStep.classList.add('hidden');
     emailStep.classList.remove('hidden');
     otpInput.value = '';
+    resendOtpBtn.style.display = 'none';
+    
+    // Clear timer
+    if (otpTimerInterval) {
+        clearInterval(otpTimerInterval);
+    }
+    
     showAuthMessage('');
 });
 
@@ -169,6 +265,7 @@ backToEmailBtn.addEventListener('click', () => {
 logoutBtn.addEventListener('click', () => {
     isLoggedIn = false;
     localStorage.removeItem('artAssetLoggedIn');
+    localStorage.removeItem('artAssetUserEmail');
     showAuth();
 });
 
@@ -182,6 +279,13 @@ function showAuth() {
     otpInput.value = '';
     emailStep.classList.remove('hidden');
     otpStep.classList.add('hidden');
+    resendOtpBtn.style.display = 'none';
+    
+    // Clear timer
+    if (otpTimerInterval) {
+        clearInterval(otpTimerInterval);
+    }
+    
     showAuthMessage('');
 }
 
@@ -189,6 +293,7 @@ function showAuth() {
 function showApp() {
     authSection.style.display = 'none';
     appSection.style.display = 'block';
+    userEmailSpan.textContent = currentEmail;
 }
 
 // Simple email validation
@@ -207,10 +312,9 @@ document.getElementById('image-upload').addEventListener('change', function(e) {
 document.getElementById('video-upload').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        // Check file size client-side
         if (file.size > 5 * 1024 * 1024) {
             alert('Video file too large. Please select a video under 5MB.');
-            e.target.value = ''; // Clear the input
+            e.target.value = '';
             return;
         }
         previewFile(file, 'video');
@@ -248,7 +352,6 @@ function previewFile(file, type) {
 
 // Main art generation function
 async function generateArt() {
-    // Check if user is logged in
     if (!isLoggedIn) {
         alert('Please log in to generate art');
         showAuth();
@@ -279,7 +382,7 @@ async function generateArt() {
     progressText.textContent = 'Initializing...';
     
     try {
-        console.log('🚀 Starting real AI generation...');
+        console.log('🚀 Starting AI generation...');
         
         const response = await fetch('/api/generate-art', {
             method: 'POST',
@@ -306,23 +409,16 @@ async function generateArt() {
                     console.log('📦 Progress update:', data);
                     
                     if (data.status === 'processing') {
-                        // Update progress bar
                         const width = data.step === 1 ? '30%' : '70%';
-                        
                         progressFill.style.width = width;
                         progressText.textContent = data.message;
                     }
                     
                     if (data.success) {
-                        // Final result
                         document.getElementById('generated-art').src = data.artUrl;
                         document.getElementById('result-section').style.display = 'block';
-                        
-                        // Update prompt info
                         document.getElementById('used-prompt').textContent = data.prompt || promptInput || 'AI Artistic Transformation';
                         document.getElementById('art-style').textContent = data.style || 'AI-Generated Art';
-                        
-                        // Scroll to result
                         document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
                     }
                     
@@ -360,34 +456,20 @@ function downloadArt() {
 }
 
 function regenerateArt() {
-    // Clear previous result
     document.getElementById('result-section').style.display = 'none';
     document.getElementById('generated-art').src = '';
-    
-    // Regenerate with current inputs
     generateArt();
 }
 
-// ==================== EVENT LISTENERS ====================
-
-// Add event listeners for the generate, download, and regenerate buttons
+// Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Only add these if the elements exist (when user is logged in)
     const generateBtn = document.getElementById('generate-art-btn');
     const downloadBtn = document.getElementById('download-art-btn');
     const regenerateBtn = document.getElementById('regenerate-art-btn');
     
-    if (generateBtn) {
-        generateBtn.addEventListener('click', generateArt);
-    }
-    
-    if (downloadBtn) {
-        downloadBtn.addEventListener('click', downloadArt);
-    }
-    
-    if (regenerateBtn) {
-        regenerateBtn.addEventListener('click', regenerateArt);
-    }
+    if (generateBtn) generateBtn.addEventListener('click', generateArt);
+    if (downloadBtn) downloadBtn.addEventListener('click', downloadArt);
+    if (regenerateBtn) regenerateBtn.addEventListener('click', regenerateArt);
 });
 
 // Initialize the app

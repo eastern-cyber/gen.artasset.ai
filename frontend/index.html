@@ -28,9 +28,13 @@
                 <div class="form-group">
                     <label for="otp-input">Enter OTP:</label>
                     <input type="text" id="otp-input" placeholder="Enter the 6-digit code" maxlength="6" required>
+                    <div class="otp-timer">
+                        <span id="otp-timer">02:00</span> remaining
+                    </div>
                 </div>
                 <button id="verify-otp-btn" class="btn">Verify OTP</button>
                 <button id="back-to-email-btn" class="btn btn-secondary">Back to Email</button>
+                <button id="resend-otp-btn" class="btn btn-secondary" style="display: none;">Resend OTP</button>
             </div>
             
             <div id="auth-message" class="auth-message"></div>
@@ -38,7 +42,10 @@
         
         <!-- Main App Section (Initially Hidden) -->
         <div id="app-section" class="app-section">
-            <button id="logout-btn" class="btn logout-btn">Logout</button>
+            <div class="user-info">
+                <span>Welcome, <span id="user-email"></span></span>
+                <button id="logout-btn" class="btn logout-btn">Logout</button>
+            </div>
             
             <div id="upload-section" class="upload-section">
                 <div class="upload-group">
@@ -55,16 +62,11 @@
                     <label for="prompt-input">Custom AI Prompt (Optional):</label>
                     <textarea 
                         id="prompt-input" 
-                        placeholder="Describe the art style, colors, theme, or specific elements you want... 
-Examples: 
-• 'vibrant anime style with glowing effects'
-• 'oil painting in renaissance style'
-• 'cyberpunk neon cityscape'
-• 'watercolor landscape with pastel colors'"
+                        placeholder="Describe the art style, colors, theme, or specific elements you want..."
                         rows="4"
                     ></textarea>
                     <div class="prompt-tips">
-                        <strong>Prompt Tips:</strong> Be specific about style, colors, mood, and composition for better results!
+                        <strong>Prompt Tips:</strong> Be specific about style, colors, mood, and composition!
                     </div>
                 </div>
                 
@@ -88,7 +90,7 @@ Examples:
                     <p><strong>Style:</strong> <span id="art-style"></span></p>
                 </div>
                 <button id="download-art-btn" class="btn download-btn">Download Art</button>
-                <button id="regenerate-art-btn" class="btn generate-btn" style="margin-left: 10px;">Regenerate with Changes</button>
+                <button id="regenerate-art-btn" class="btn generate-btn">Regenerate with Changes</button>
             </div>
         </div>
     </div>

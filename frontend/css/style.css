@@ -309,3 +309,31 @@ textarea:focus {
         padding: 10px;
     }
 }
+
+/* Add to your existing CSS */
+.otp-timer {
+    text-align: center;
+    margin: 10px 0;
+    font-size: 14px;
+    color: #ffeb3b;
+    font-weight: bold;
+}
+
+.user-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.user-info span {
+    font-weight: 600;
+}
+
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
