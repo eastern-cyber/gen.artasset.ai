@@ -1,10 +1,21 @@
 // /api/send-otp.js
 
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+// For development/demo - simulates email sending
+// For production, uncomment the Resend code
 
 export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  // Handle OPTIONS request for CORS
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -18,14 +29,21 @@ export default async function handler(req, res) {
 
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
+    
+    console.log(`OTP for ${email}: ${otp}`); // Remove in production
 
-    // Store OTP in serverless database or Redis (for production)
-    // For demo, we'll just send the email
+    // ===== PRODUCTION: Uncomment this section when you have Resend API key =====
+    /*
+    const { RESEND_API_KEY } = process.env;
+    
+    if (!RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
+    }
 
-    // Send email using Resend
+    const resend = new Resend(RESEND_API_KEY);
+
     const { data, error } = await resend.emails.send({
-      from: 'ArtAsset AI <noreply@yourdomain.com>',
+      from: 'ArtAsset AI <onboarding@resend.dev>',
       to: [email],
       subject: 'Your ArtAsset AI Verification Code',
       html: `
@@ -45,21 +63,28 @@ export default async function handler(req, res) {
 
     if (error) {
       console.error('Error sending email:', error);
-      return res.status(500).json({ error: 'Failed to send OTP email' });
+      return res.status(500).json({ error: 'Failed to send OTP email: ' + error.message });
     }
+    */
 
-    // In production, store the OTP hash in a database
-    console.log(`OTP for ${email}: ${otp}`); // Remove in production
+    // ===== DEVELOPMENT: Simulate successful email sending =====
+    // Simulate delay for email sending
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // For development, we'll return the OTP so users can use it
+    // In production, remove the otp from the response
     res.status(200).json({ 
       success: true, 
       message: 'OTP sent successfully',
-      // In production, don't send OTP back to client
-      otp: otp // Remove this in production
+      // DEVELOPMENT ONLY - Remove in production
+      otp: otp
     });
 
   } catch (error) {
     console.error('Error in send-otp:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: error.message || 'Internal server error',
+      details: 'Check server logs for more information'
+    });
   }
 }

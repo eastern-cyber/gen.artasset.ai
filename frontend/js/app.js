@@ -75,6 +75,7 @@ function startOtpTimer() {
 }
 
 // Real OTP sending using Vercel serverless function
+// Real OTP sending using Vercel serverless function
 async function sendOTP(email) {
     try {
         const response = await fetch('/api/send-otp', {
@@ -85,15 +86,31 @@ async function sendOTP(email) {
             body: JSON.stringify({ email })
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server returned an invalid response. Please check if the API endpoint exists.');
+        }
+
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || 'Failed to send OTP');
+            throw new Error(data.error || `Server error: ${response.status}`);
         }
         
         return data;
     } catch (error) {
         console.error('Error sending OTP:', error);
+        
+        // More specific error messages
+        if (error.message.includes('Failed to fetch')) {
+            throw new Error('Cannot connect to server. Please check your internet connection and try again.');
+        } else if (error.message.includes('invalid response')) {
+            throw new Error('Server configuration error. Please contact support.');
+        }
+        
         throw error;
     }
 }
@@ -109,15 +126,28 @@ async function verifyOTP(email, otp) {
             body: JSON.stringify({ email, otp })
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server returned an invalid response. Please check if the API endpoint exists.');
+        }
+
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || 'Failed to verify OTP');
+            throw new Error(data.error || `Server error: ${response.status}`);
         }
         
         return data;
     } catch (error) {
         console.error('Error verifying OTP:', error);
+        
+        if (error.message.includes('Failed to fetch')) {
+            throw new Error('Cannot connect to server. Please check your internet connection.');
+        }
+        
         throw error;
     }
 }
