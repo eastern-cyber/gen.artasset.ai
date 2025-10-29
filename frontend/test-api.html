@@ -1,0 +1,43 @@
+<!-- test-api.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Routes</title>
+</head>
+<body>
+    <h1>Test API Routes</h1>
+    <button onclick="testSendOTP()">Test Send OTP</button>
+    <button onclick="testVerifyOTP()">Test Verify OTP</button>
+    <div id="result"></div>
+
+    <script>
+        async function testSendOTP() {
+            try {
+                const response = await fetch('/api/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@example.com' })
+                });
+                const result = await response.text();
+                document.getElementById('result').innerHTML = `<pre>${result}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error}`;
+            }
+        }
+
+        async function testVerifyOTP() {
+            try {
+                const response = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@example.com', otp: '123456' })
+                });
+                const result = await response.text();
+                document.getElementById('result').innerHTML = `<pre>${result}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error}`;
+            }
+        }
+    </script>
+</body>
+</html>

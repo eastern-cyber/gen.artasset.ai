@@ -1,6 +1,9 @@
 // frontend/js/app.js
 
-// ==================== AUTHENTICATION SYSTEM ====================
+// Authentication state
+let authToken = null;
+let currentUser = null;
+let otpTimer = null;
 
 // DOM Elements
 const authSection = document.getElementById('auth-section');
@@ -14,147 +17,44 @@ const verifyOtpBtn = document.getElementById('verify-otp-btn');
 const backToEmailBtn = document.getElementById('back-to-email-btn');
 const resendOtpBtn = document.getElementById('resend-otp-btn');
 const authMessage = document.getElementById('auth-message');
-const logoutBtn = document.getElementById('logout-btn');
 const userEmailSpan = document.getElementById('user-email');
-const otpTimer = document.getElementById('otp-timer');
+const logoutBtn = document.getElementById('logout-btn');
+const generateArtBtn = document.getElementById('generate-art-btn');
+const downloadArtBtn = document.getElementById('download-art-btn');
+const regenerateArtBtn = document.getElementById('regenerate-art-btn');
 
-// State variables
-let currentEmail = '';
-let otpExpiryTime = null;
-let otpTimerInterval = null;
-let isLoggedIn = false;
-
-// Check if user is already logged in
-function checkLoginStatus() {
-    const savedLogin = localStorage.getItem('artAssetLoggedIn');
-    const savedEmail = localStorage.getItem('artAssetUserEmail');
+// Initialize app
+document.addEventListener('DOMContentLoaded', function() {
+    // Check for existing session
+    const savedToken = localStorage.getItem('authToken');
+    const savedUser = localStorage.getItem('userEmail');
     
-    if (savedLogin === 'true' && savedEmail) {
-        isLoggedIn = true;
-        currentEmail = savedEmail;
-        showApp();
-    }
-}
-
-// Show authentication message
-function showAuthMessage(message, type) {
-    authMessage.textContent = message;
-    authMessage.className = 'auth-message';
-    if (type) {
-        authMessage.classList.add(type);
-    }
-}
-
-// Start OTP timer (2 minutes)
-function startOtpTimer() {
-    let timeLeft = 120; // 2 minutes in seconds
-    
-    // Clear existing timer
-    if (otpTimerInterval) {
-        clearInterval(otpTimerInterval);
+    if (savedToken && savedUser) {
+        authToken = savedToken;
+        currentUser = savedUser;
+        showAppSection();
     }
     
-    otpTimerInterval = setInterval(() => {
-        timeLeft--;
-        
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        otpTimer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(otpTimerInterval);
-            otpTimer.textContent = '00:00';
-            resendOtpBtn.style.display = 'block';
-            showAuthMessage('OTP has expired. Please request a new one.', 'error');
-        }
-        
-        if (timeLeft === 30) {
-            showAuthMessage('OTP will expire in 30 seconds!', 'error');
-        }
-    }, 1000);
-}
+    // Event listeners
+    sendOtpBtn.addEventListener('click', sendOtp);
+    verifyOtpBtn.addEventListener('click', verifyOtp);
+    backToEmailBtn.addEventListener('click', backToEmail);
+    resendOtpBtn.addEventListener('click', sendOtp);
+    logoutBtn.addEventListener('click', logout);
+    generateArtBtn.addEventListener('click', generateArt);
+    downloadArtBtn.addEventListener('click', downloadArt);
+    regenerateArtBtn.addEventListener('click', generateArt);
+    
+    // File preview listeners
+    document.getElementById('image-upload').addEventListener('change', handleFilePreview);
+    document.getElementById('video-upload').addEventListener('change', handleFilePreview);
+});
 
-// Real OTP sending using Vercel serverless function
-// Real OTP sending using Vercel serverless function
-async function sendOTP(email) {
-    try {
-        const response = await fetch('/api/send-otp', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email })
-        });
-
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('Non-JSON response:', text.substring(0, 200));
-            throw new Error('Server returned an invalid response. Please check if the API endpoint exists.');
-        }
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || `Server error: ${response.status}`);
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('Error sending OTP:', error);
-        
-        // More specific error messages
-        if (error.message.includes('Failed to fetch')) {
-            throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-        } else if (error.message.includes('invalid response')) {
-            throw new Error('Server configuration error. Please contact support.');
-        }
-        
-        throw error;
-    }
-}
-
-// Real OTP verification using Vercel serverless function
-async function verifyOTP(email, otp) {
-    try {
-        const response = await fetch('/api/verify-otp', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, otp })
-        });
-
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('Non-JSON response:', text.substring(0, 200));
-            throw new Error('Server returned an invalid response. Please check if the API endpoint exists.');
-        }
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || `Server error: ${response.status}`);
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('Error verifying OTP:', error);
-        
-        if (error.message.includes('Failed to fetch')) {
-            throw new Error('Cannot connect to server. Please check your internet connection.');
-        }
-        
-        throw error;
-    }
-}
-
-// Handle Send OTP button click
-sendOtpBtn.addEventListener('click', async () => {
+// Authentication functions
+async function sendOtp() {
     const email = emailInput.value.trim();
+    
+    console.log('🔍 Debug: Send OTP clicked with email:', email);
     
     if (!email) {
         showAuthMessage('Please enter your email address', 'error');
@@ -166,231 +66,235 @@ sendOtpBtn.addEventListener('click', async () => {
         return;
     }
     
-    // Show loading state
-    sendOtpBtn.textContent = 'Sending...';
-    sendOtpBtn.classList.add('loading');
-    sendOtpBtn.disabled = true;
-    showAuthMessage('');
-    
     try {
-        const result = await sendOTP(email);
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.textContent = 'Sending...';
+        showAuthMessage('Sending OTP...', 'info');
         
-        if (result.success) {
-            currentEmail = email;
-            emailStep.classList.add('hidden');
-            otpStep.classList.remove('hidden');
-            resendOtpBtn.style.display = 'none';
-            
-            // Start OTP timer
-            startOtpTimer();
-            
-            showAuthMessage(`OTP sent to ${email}. Please check your inbox (and spam folder).`, 'success');
-        } else {
-            showAuthMessage('Failed to send OTP. Please try again.', 'error');
+        console.log('🔍 Making OTP request to /api/auth/send-otp');
+        
+        const response = await fetch('/api/auth/send-otp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email })
+        });
+        
+        console.log('🔍 Response status:', response.status);
+        console.log('🔍 Response ok:', response.ok);
+        
+        const responseText = await response.text();
+        console.log('🔍 Raw response:', responseText);
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('🔍 JSON parse error:', parseError);
+            throw new Error('Invalid server response');
         }
+        
+        console.log('🔍 Parsed response data:', data);
+        
+        if (data.success) {
+            showAuthMessage('OTP sent to your email! Check your inbox.', 'success');
+            showOtpStep();
+            startOtpTimer();
+            // For development, show OTP in console and alert
+            if (data.debug_otp) {
+                console.log('📧 Development OTP:', data.debug_otp);
+                // Optional: show in alert for easy testing
+                setTimeout(() => {
+                    alert(`Development OTP: ${data.debug_otp}\n\nFor testing purposes only.`);
+                }, 500);
+            }
+        } else {
+            showAuthMessage(data.error || 'Failed to send OTP', 'error');
+        }
+        
     } catch (error) {
-        console.error('Error sending OTP:', error);
-        showAuthMessage(error.message || 'An error occurred. Please try again.', 'error');
+        console.error('❌ Send OTP error:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            stack: error.stack
+        });
+        showAuthMessage('Network error: ' + error.message, 'error');
     } finally {
-        sendOtpBtn.textContent = 'Send OTP';
-        sendOtpBtn.classList.remove('loading');
         sendOtpBtn.disabled = false;
+        sendOtpBtn.textContent = 'Send OTP';
     }
-});
+}
 
-// Handle Verify OTP button click
-verifyOtpBtn.addEventListener('click', async () => {
+async function verifyOtp() {
+    const email = emailInput.value.trim();
     const otp = otpInput.value.trim();
     
     if (!otp || otp.length !== 6) {
-        showAuthMessage('Please enter a valid 6-digit OTP', 'error');
+        showAuthMessage('Please enter the 6-digit OTP', 'error');
         return;
     }
     
-    // Show loading state
-    verifyOtpBtn.textContent = 'Verifying...';
-    verifyOtpBtn.classList.add('loading');
-    verifyOtpBtn.disabled = true;
-    showAuthMessage('');
-    
     try {
-        const result = await verifyOTP(currentEmail, otp);
+        verifyOtpBtn.disabled = true;
+        verifyOtpBtn.textContent = 'Verifying...';
+        showAuthMessage('Verifying OTP...', 'info');
         
-        if (result.success) {
-            isLoggedIn = true;
-            localStorage.setItem('artAssetLoggedIn', 'true');
-            localStorage.setItem('artAssetUserEmail', currentEmail);
-            
-            // Clear timer
-            if (otpTimerInterval) {
-                clearInterval(otpTimerInterval);
-            }
-            
+        const response = await fetch('/api/auth/verify-otp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, otp })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
             showAuthMessage('Login successful!', 'success');
+            authToken = data.token;
+            currentUser = email;
             
-            // Transition to app after a brief delay
+            // Save to localStorage
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('userEmail', currentUser);
+            
+            // Show main app
             setTimeout(() => {
-                showApp();
+                showAppSection();
             }, 1000);
+            
         } else {
-            showAuthMessage('Invalid OTP. Please try again.', 'error');
+            showAuthMessage(data.error || 'Invalid OTP', 'error');
         }
-    } catch (error) {
-        console.error('Error verifying OTP:', error);
-        showAuthMessage(error.message || 'An error occurred. Please try again.', 'error');
-    } finally {
-        verifyOtpBtn.textContent = 'Verify OTP';
-        verifyOtpBtn.classList.remove('loading');
-        verifyOtpBtn.disabled = false;
-    }
-});
-
-// Handle Resend OTP button click
-resendOtpBtn.addEventListener('click', async () => {
-    if (!currentEmail) return;
-    
-    resendOtpBtn.textContent = 'Resending...';
-    resendOtpBtn.disabled = true;
-    showAuthMessage('');
-    
-    try {
-        const result = await sendOTP(currentEmail);
         
-        if (result.success) {
-            resendOtpBtn.style.display = 'none';
-            otpInput.value = '';
-            
-            // Restart timer
-            startOtpTimer();
-            
-            showAuthMessage('New OTP sent successfully!', 'success');
-        } else {
-            showAuthMessage('Failed to resend OTP. Please try again.', 'error');
-        }
     } catch (error) {
-        console.error('Error resending OTP:', error);
-        showAuthMessage(error.message || 'An error occurred. Please try again.', 'error');
+        console.error('Verify OTP error:', error);
+        showAuthMessage('Network error. Please try again.', 'error');
     } finally {
-        resendOtpBtn.textContent = 'Resend OTP';
-        resendOtpBtn.disabled = false;
+        verifyOtpBtn.disabled = false;
+        verifyOtpBtn.textContent = 'Verify OTP';
     }
-});
+}
 
-// Handle Back to Email button click
-backToEmailBtn.addEventListener('click', () => {
+function backToEmail() {
     otpStep.classList.add('hidden');
     emailStep.classList.remove('hidden');
+    clearOtpTimer();
     otpInput.value = '';
-    resendOtpBtn.style.display = 'none';
-    
-    // Clear timer
-    if (otpTimerInterval) {
-        clearInterval(otpTimerInterval);
-    }
-    
-    showAuthMessage('');
-});
+    showAuthMessage('', '');
+}
 
-// Handle Logout button click
-logoutBtn.addEventListener('click', () => {
-    isLoggedIn = false;
-    localStorage.removeItem('artAssetLoggedIn');
-    localStorage.removeItem('artAssetUserEmail');
-    showAuth();
-});
+function logout() {
+    // Call logout API
+    fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+        }
+    }).catch(console.error);
+    
+    // Clear local state
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userEmail');
+    
+    // Show auth section
+    showAuthSection();
+}
 
-// Show the authentication section
-function showAuth() {
+// UI Management
+function showAuthSection() {
     authSection.style.display = 'block';
     appSection.style.display = 'none';
-    
-    // Reset form
-    emailInput.value = '';
-    otpInput.value = '';
-    emailStep.classList.remove('hidden');
-    otpStep.classList.add('hidden');
-    resendOtpBtn.style.display = 'none';
-    
-    // Clear timer
-    if (otpTimerInterval) {
-        clearInterval(otpTimerInterval);
-    }
-    
-    showAuthMessage('');
+    backToEmail();
 }
 
-// Show the main app section
-function showApp() {
+function showAppSection() {
     authSection.style.display = 'none';
     appSection.style.display = 'block';
-    userEmailSpan.textContent = currentEmail;
+    userEmailSpan.textContent = currentUser;
+    clearUploads();
 }
 
-// Simple email validation
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+function showOtpStep() {
+    emailStep.classList.add('hidden');
+    otpStep.classList.remove('hidden');
+    otpInput.focus();
 }
 
-// ==================== EXISTING ArtGeneration FUNCTIONALITY ====================
+function showAuthMessage(message, type) {
+    authMessage.textContent = message;
+    authMessage.className = `auth-message ${type}`;
+}
 
-// File preview functionality
-document.getElementById('image-upload').addEventListener('change', function(e) {
-    previewFile(e.target.files[0], 'image');
-});
-
-document.getElementById('video-upload').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-            alert('Video file too large. Please select a video under 5MB.');
-            e.target.value = '';
-            return;
+function startOtpTimer() {
+    let timeLeft = 120; // 2 minutes in seconds
+    const timerElement = document.getElementById('otp-timer');
+    resendOtpBtn.style.display = 'none';
+    
+    clearOtpTimer();
+    
+    otpTimer = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (timeLeft <= 0) {
+            clearOtpTimer();
+            resendOtpBtn.style.display = 'inline-block';
+            showAuthMessage('OTP has expired. Please request a new one.', 'error');
         }
-        previewFile(file, 'video');
-    }
-});
+        
+        timeLeft--;
+    }, 1000);
+}
 
-function previewFile(file, type) {
+function clearOtpTimer() {
+    if (otpTimer) {
+        clearInterval(otpTimer);
+        otpTimer = null;
+    }
+}
+
+// File handling
+function handleFilePreview(event) {
+    const file = event.target.files[0];
     const previewArea = document.getElementById('preview-area');
     
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            if (type === 'image') {
-                previewArea.innerHTML = `
-                    <div class="preview-item">
-                        <img src="${e.target.result}" alt="Image preview" />
-                        <p>Image: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
-                    </div>
-                `;
-            } else if (type === 'video') {
-                previewArea.innerHTML = `
-                    <div class="preview-item">
-                        <video controls>
-                            <source src="${e.target.result}" type="${file.type}">
-                            Your browser does not support the video tag.
-                        </video>
-                        <p>Video: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
-                    </div>
-                `;
-            }
-        };
-        reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        if (file.type.startsWith('image/')) {
+            previewArea.innerHTML = `
+                <div class="file-preview">
+                    <img src="${e.target.result}" alt="Preview">
+                    <p>${file.name} (${formatFileSize(file.size)})</p>
+                </div>
+            `;
+        } else if (file.type.startsWith('video/')) {
+            previewArea.innerHTML = `
+                <div class="file-preview">
+                    <video controls>
+                        <source src="${e.target.result}" type="${file.type}">
+                        Your browser does not support the video tag.
+                    </video>
+                    <p>${file.name} (${formatFileSize(file.size)})</p>
+                </div>
+            `;
+        }
+    };
+    reader.readAsDataURL(file);
 }
 
-// Main art generation function
+// Art generation
 async function generateArt() {
-    if (!isLoggedIn) {
-        alert('Please log in to generate art');
-        showAuth();
-        return;
-    }
-    
     const imageFile = document.getElementById('image-upload').files[0];
     const videoFile = document.getElementById('video-upload').files[0];
-    const promptInput = document.getElementById('prompt-input').value;
+    const prompt = document.getElementById('prompt-input').value.trim();
     
     if (!imageFile && !videoFile) {
         alert('Please upload at least one image or video file');
@@ -400,107 +304,113 @@ async function generateArt() {
     const formData = new FormData();
     if (imageFile) formData.append('image', imageFile);
     if (videoFile) formData.append('video', videoFile);
-    if (promptInput) formData.append('prompt', promptInput);
+    if (prompt) formData.append('prompt', prompt);
     
     // Show progress
     const progressBar = document.getElementById('progress-bar');
-    const progressFill = document.querySelector('.progress-fill');
-    const progressText = document.querySelector('.progress-text');
+    const progressFill = progressBar.querySelector('.progress-fill');
+    const progressText = progressBar.querySelector('.progress-text');
     
     progressBar.style.display = 'block';
     progressFill.style.width = '0%';
-    progressText.textContent = 'Initializing...';
+    progressText.textContent = '0%';
+    
+    generateArtBtn.disabled = true;
     
     try {
-        console.log('🚀 Starting AI generation...');
+        // Simulate progress
+        simulateProgress(progressFill, progressText);
         
         const response = await fetch('/api/generate-art', {
             method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            },
             body: formData
         });
         
         if (!response.ok) {
+            if (response.status === 401) {
+                logout();
+                throw new Error('Session expired. Please login again.');
+            }
             throw new Error(`Server error: ${response.status}`);
         }
         
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        const result = await response.json();
         
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+        if (result.success) {
+            // Complete progress
+            progressFill.style.width = '100%';
+            progressText.textContent = '100%';
             
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n').filter(line => line.trim());
+            // Show result
+            document.getElementById('generated-art').src = result.artUrl;
+            document.getElementById('used-prompt').textContent = result.promptUsed;
+            document.getElementById('art-style').textContent = result.style;
+            document.getElementById('result-section').style.display = 'block';
             
-            for (const line of lines) {
-                try {
-                    const data = JSON.parse(line);
-                    console.log('📦 Progress update:', data);
-                    
-                    if (data.status === 'processing') {
-                        const width = data.step === 1 ? '30%' : '70%';
-                        progressFill.style.width = width;
-                        progressText.textContent = data.message;
-                    }
-                    
-                    if (data.success) {
-                        document.getElementById('generated-art').src = data.artUrl;
-                        document.getElementById('result-section').style.display = 'block';
-                        document.getElementById('used-prompt').textContent = data.prompt || promptInput || 'AI Artistic Transformation';
-                        document.getElementById('art-style').textContent = data.style || 'AI-Generated Art';
-                        document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
-                    }
-                    
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-                    
-                } catch (parseError) {
-                    console.error('Error parsing JSON:', parseError, 'Raw:', line);
-                }
-            }
+            // Scroll to result
+            setTimeout(() => {
+                document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+            }, 500);
+            
+        } else {
+            throw new Error(result.error || 'Generation failed');
         }
         
     } catch (error) {
-        console.error('❌ Error generating art:', error);
-        alert('Error: ' + error.message);
+        console.error('Error generating art:', error);
+        alert('Error generating art: ' + error.message);
     } finally {
-        progressBar.style.display = 'none';
+        generateArtBtn.disabled = false;
+        setTimeout(() => {
+            progressBar.style.display = 'none';
+        }, 1000);
     }
+}
+
+function simulateProgress(progressFill, progressText) {
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress >= 90) {
+            progress = 90;
+            clearInterval(interval);
+        }
+        progressFill.style.width = progress + '%';
+        progressText.textContent = Math.round(progress) + '%';
+    }, 200);
 }
 
 function downloadArt() {
     const artUrl = document.getElementById('generated-art').src;
-    if (!artUrl || artUrl.includes('undefined')) {
-        alert('No generated art available to download');
-        return;
-    }
-    
     const link = document.createElement('a');
     link.href = artUrl;
-    link.download = 'generated-art.png';
+    link.download = `artasset-ai-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 }
 
-function regenerateArt() {
+function clearUploads() {
+    document.getElementById('image-upload').value = '';
+    document.getElementById('video-upload').value = '';
+    document.getElementById('prompt-input').value = '';
+    document.getElementById('preview-area').innerHTML = '<p>Uploaded files and preview will appear here</p>';
     document.getElementById('result-section').style.display = 'none';
-    document.getElementById('generated-art').src = '';
-    generateArt();
 }
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    const generateBtn = document.getElementById('generate-art-btn');
-    const downloadBtn = document.getElementById('download-art-btn');
-    const regenerateBtn = document.getElementById('regenerate-art-btn');
-    
-    if (generateBtn) generateBtn.addEventListener('click', generateArt);
-    if (downloadBtn) downloadBtn.addEventListener('click', downloadArt);
-    if (regenerateBtn) regenerateBtn.addEventListener('click', regenerateArt);
-});
+// Utility functions
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
 
-// Initialize the app
-checkLoginStatus();
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}

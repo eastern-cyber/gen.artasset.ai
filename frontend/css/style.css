@@ -1,14 +1,13 @@
-/* Base Styles */
+/* css/style.css */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
-    background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -16,33 +15,33 @@ body {
 .container {
     max-width: 800px;
     margin: 0 auto;
-    padding: 20px;
-    font-family: Arial, sans-serif;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    overflow: hidden;
 }
 
 h1 {
     text-align: center;
-    margin: 20px 0;
-    font-size: 2.5rem;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    color: #333;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    margin: 0;
 }
 
-/* Auth Section Styles */
-.auth-section {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 15px;
+h1 p {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 5px;
+    font-weight: normal;
+}
+
+.auth-section, .app-section {
     padding: 30px;
-    margin: 30px auto;
-    max-width: 500px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.auth-section h2 {
-    text-align: center;
-    margin-bottom: 25px;
-    font-size: 1.8rem;
+.hidden {
+    display: none !important;
 }
 
 .form-group {
@@ -53,287 +52,200 @@ label {
     display: block;
     margin-bottom: 8px;
     font-weight: 600;
+    color: #333;
 }
 
-input[type="email"], input[type="text"] {
+input, textarea {
     width: 100%;
-    padding: 12px 15px;
-    border: none;
+    padding: 12px;
+    border: 2px solid #e1e5e9;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.9);
-    font-size: 1rem;
-    transition: all 0.3s ease;
+    font-size: 16px;
+    transition: border-color 0.3s;
 }
 
-input[type="email"]:focus, input[type="text"]:focus {
+input:focus, textarea:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+    border-color: #667eea;
 }
 
 .btn {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
-    background: #4a00e0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    font-size: 1rem;
-    font-weight: 600;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin: 5px;
 }
 
 .btn:hover {
-    background: #8e2de2;
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
-.btn:active {
-    transform: translateY(0);
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .btn-secondary {
-    background: transparent;
-    border: 2px solid white;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
+.otp-timer {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #666;
 }
 
 .auth-message {
-    text-align: center;
-    margin-top: 15px;
-    padding: 10px;
+    padding: 12px;
     border-radius: 8px;
-    font-weight: 500;
-}
-
-.success {
-    background: rgba(46, 204, 113, 0.2);
-    border: 1px solid rgba(46, 204, 113, 0.5);
-}
-
-.error {
-    background: rgba(231, 76, 60, 0.2);
-    border: 1px solid rgba(231, 76, 60, 0.5);
-}
-
-.hidden {
+    margin: 15px 0;
     display: none;
 }
 
-/* Main App Styles */
-.app-section {
-    display: none;
+.auth-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
 }
 
-.upload-section {
-    border: 2px dashed #ccc;
-    padding: 20px;
-    margin-bottom: 20px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+.auth-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
 }
 
-.upload-group {
-    margin-bottom: 15px;
-}
-
-.upload-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-}
-
-input[type="file"] {
-    width: 100%;
-    padding: 10px;
-    border: 2px dashed rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-}
-
-textarea {
-    width: 100%;
-    padding: 12px 15px;
-    border: none;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.9);
-    font-size: 1rem;
-    resize: vertical;
-    min-height: 100px;
-}
-
-textarea:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
-}
-
-.prompt-tips {
-    margin-top: 8px;
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.8);
-}
-
-.generate-btn, .download-btn {
-    background-color: #007bff;
-    color: white;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-.generate-btn:hover, .download-btn:hover {
-    background-color: #0056b3;
-}
-
-.generate-btn {
-    background: #00b09b;
-}
-
-.generate-btn:hover {
-    background: #96c93d;
-}
-
-.preview-area {
-    margin-top: 20px;
-    min-height: 100px;
-    border: 2px dashed rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    padding: 20px;
-    text-align: center;
-}
-
-.progress-bar {
-    display: none;
-    width: 100%;
-    height: 30px;
-    background: #f0f0f0;
-    border-radius: 15px;
-    margin: 20px 0;
-    overflow: hidden;
-    position: relative;
-}
-
-.progress-fill {
-    width: 0%;
-    height: 100%;
-    background: linear-gradient(90deg, #007bff, #0056b3);
-    border-radius: 15px;
-    transition: width 0.5s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.progress-text {
-    color: white;
-    font-size: 12px;
-    font-weight: bold;
-    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-}
-
-.result-section {
-    text-align: center;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 15px;
-    padding: 30px;
-    margin: 30px auto;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.generated-art {
-    max-width: 100%;
-    max-height: 500px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.result-info {
-    margin: 20px 0;
-}
-
-.result-info p {
-    margin-bottom: 10px;
-}
-
-.download-btn {
-    background: #3498db;
-}
-
-.download-btn:hover {
-    background: #2980b9;
-}
-
-.logout-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(231, 76, 60, 0.8);
-    width: auto;
-    padding: 8px 15px;
-}
-
-.logout-btn:hover {
-    background: rgba(192, 57, 43, 0.9);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    h1 {
-        font-size: 2rem;
-    }
-    
-    .auth-section, .upload-section, .result-section {
-        padding: 20px;
-        margin: 20px auto;
-    }
-    
-    .container {
-        padding: 10px;
-    }
-}
-
-/* Add to your existing CSS */
-.otp-timer {
-    text-align: center;
-    margin: 10px 0;
-    font-size: 14px;
-    color: #ffeb3b;
-    font-weight: bold;
+.auth-message.info {
+    background: #cce7ff;
+    color: #004085;
+    border: 1px solid #b3d7ff;
 }
 
 .user-info {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
     padding: 15px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
 }
 
-.user-info span {
-    font-weight: 600;
+.logout-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-.loading {
-    opacity: 0.7;
-    pointer-events: none;
+.upload-group {
+    margin-bottom: 25px;
+}
+
+.prompt-tips {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #666;
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    border-left: 4px solid #667eea;
+}
+
+.generate-btn {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+}
+
+.preview-area {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin: 20px 0;
+    min-height: 100px;
+}
+
+.preview-item {
+    margin: 10px 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 30px;
+    background: #f0f0f0;
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 20px 0;
+    display: none;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    border-radius: 15px;
+    transition: width 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+}
+
+.progress-text {
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.result-section {
+    text-align: center;
+    padding: 20px;
+}
+
+.generated-art {
+    max-width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    margin: 20px 0;
+}
+
+.result-info {
+    text-align: left;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.download-btn {
+    background: linear-gradient(135deg, #5ee7df 0%, #b490ca 100%);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        margin: 10px;
+        border-radius: 10px;
+    }
+    
+    .auth-section, .app-section {
+        padding: 20px;
+    }
+    
+    .user-info {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .btn {
+        width: 100%;
+        margin: 5px 0;
+    }
 }
