@@ -120,32 +120,105 @@ async function generateImageWithHuggingFace(prompt, style = 'artistic') {
 }
 
 // Option 2: Local image transformation (simulated AI)
+// Enhanced simulation function - replace in your server.js
 async function simulateAITransformation(imagePath, prompt) {
     try {
         console.log('🎨 Simulating AI transformation...');
         
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Simulate AI processing time
+        await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
         
-        // For now, return a themed placeholder based on the prompt
+        // Enhanced theme detection with more creative options
         let theme = 'art';
-        if (prompt.toLowerCase().includes('watercolor')) theme = 'watercolor';
-        if (prompt.toLowerCase().includes('oil')) theme = 'painting';
-        if (prompt.toLowerCase().includes('cyberpunk')) theme = 'tech';
-        if (prompt.toLowerCase().includes('ancient')) theme = 'history';
+        const promptLower = prompt.toLowerCase();
         
-        // Use themed placeholders
+        if (promptLower.includes('watercolor') || promptLower.includes('water colour') || promptLower.includes('water paint')) {
+            theme = 'watercolor';
+        } else if (promptLower.includes('oil') || promptLower.includes('painting') || promptLower.includes('canvas')) {
+            theme = 'oilpainting';
+        } else if (promptLower.includes('cyberpunk') || promptLower.includes('futuristic') || promptLower.includes('tech')) {
+            theme = 'cyberpunk';
+        } else if (promptLower.includes('ancient') || promptLower.includes('historical') || promptLower.includes('vintage')) {
+            theme = 'ancient';
+        } else if (promptLower.includes('abstract') || promptLower.includes('modern') || promptLower.includes('contemporary')) {
+            theme = 'abstract';
+        } else if (promptLower.includes('sketch') || promptLower.includes('drawing') || promptLower.includes('pencil')) {
+            theme = 'sketch';
+        } else if (promptLower.includes('digital') || promptLower.includes('vector') || promptLower.includes('graphic')) {
+            theme = 'digital';
+        } else if (promptLower.includes('fantasy') || promptLower.includes('magical') || promptLower.includes('mythical')) {
+            theme = 'fantasy';
+        } else if (promptLower.includes('minimal') || promptLower.includes('simple') || promptLower.includes('clean')) {
+            theme = 'minimal';
+        } else if (promptLower.includes('paper') || promptLower.includes('marche') || promptLower.includes('craft')) {
+            theme = 'papercraft';
+        }
+        
+        // Curated Unsplash images for each theme
         const themedImages = {
-            watercolor: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=600&h=400&fit=crop',
-            painting: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600&h=400&fit=crop',
-            tech: 'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=600&h=400&fit=crop',
-            history: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=600&h=400&fit=crop',
-            art: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=600&h=400&fit=crop'
+            watercolor: [
+                'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1578321272175-b69c13d5f8b9?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1536922246289-88c42f957773?w=600&h=400&fit=crop'
+            ],
+            oilpainting: [
+                'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1542574621-e088a446ad8a?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?w=600&h=400&fit=crop'
+            ],
+            cyberpunk: [
+                'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&h=400&fit=crop'
+            ],
+            ancient: [
+                'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1551316679-9c6ae9dec224?w=600&h=400&fit=crop'
+            ],
+            abstract: [
+                'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1550275994-cdc89cd1948f?w=600&h=400&fit=crop'
+            ],
+            sketch: [
+                'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=600&h=400&fit=crop'
+            ],
+            digital: [
+                'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1550645612-83f5d594b671?w=600&h=400&fit=crop'
+            ],
+            fantasy: [
+                'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1448375240586-882707db888b?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=400&fit=crop'
+            ],
+            minimal: [
+                'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=600&h=400&fit=crop'
+            ],
+            papercraft: [
+                'https://images.unsplash.com/photo-1582582498060-1c62f8976c7c?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600&h=400&fit=crop'
+            ],
+            art: [
+                'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=600&h=400&fit=crop',
+                'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=600&h=400&fit=crop'
+            ]
         };
         
-        const artUrl = themedImages[theme] || 'https://picsum.photos/600/400';
-        console.log('✅ Simulated transformation complete');
-        return artUrl;
+        // Select random image from the theme
+        const themeImages = themedImages[theme] || themedImages.art;
+        const randomImage = themeImages[Math.floor(Math.random() * themeImages.length)];
+        
+        console.log(`✅ Generated ${theme} style art for prompt: "${prompt}"`);
+        return randomImage;
         
     } catch (error) {
         console.error('❌ Simulation error:', error);
