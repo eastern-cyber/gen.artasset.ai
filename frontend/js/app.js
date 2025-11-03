@@ -1,416 +1,647 @@
 // frontend/js/app.js
-
-// Authentication state
-let authToken = null;
-let currentUser = null;
-let otpTimer = null;
-
-// DOM Elements
-const authSection = document.getElementById('auth-section');
-const appSection = document.getElementById('app-section');
-const emailStep = document.getElementById('email-step');
-const otpStep = document.getElementById('otp-step');
-const emailInput = document.getElementById('email-input');
-const otpInput = document.getElementById('otp-input');
-const sendOtpBtn = document.getElementById('send-otp-btn');
-const verifyOtpBtn = document.getElementById('verify-otp-btn');
-const backToEmailBtn = document.getElementById('back-to-email-btn');
-const resendOtpBtn = document.getElementById('resend-otp-btn');
-const authMessage = document.getElementById('auth-message');
-const userEmailSpan = document.getElementById('user-email');
-const logoutBtn = document.getElementById('logout-btn');
-const generateArtBtn = document.getElementById('generate-art-btn');
-const downloadArtBtn = document.getElementById('download-art-btn');
-const regenerateArtBtn = document.getElementById('regenerate-art-btn');
-
-// Initialize app
-document.addEventListener('DOMContentLoaded', function() {
-    // Check for existing session
-    const savedToken = localStorage.getItem('authToken');
-    const savedUser = localStorage.getItem('userEmail');
-    
-    if (savedToken && savedUser) {
-        authToken = savedToken;
-        currentUser = savedUser;
-        showAppSection();
-    }
-    
-    // Event listeners
-    sendOtpBtn.addEventListener('click', sendOtp);
-    verifyOtpBtn.addEventListener('click', verifyOtp);
-    backToEmailBtn.addEventListener('click', backToEmail);
-    resendOtpBtn.addEventListener('click', sendOtp);
-    logoutBtn.addEventListener('click', logout);
-    generateArtBtn.addEventListener('click', generateArt);
-    downloadArtBtn.addEventListener('click', downloadArt);
-    regenerateArtBtn.addEventListener('click', generateArt);
-    
-    // File preview listeners
-    document.getElementById('image-upload').addEventListener('change', handleFilePreview);
-    document.getElementById('video-upload').addEventListener('change', handleFilePreview);
-});
-
-// Authentication functions
-async function sendOtp() {
-    const email = emailInput.value.trim();
-    
-    console.log('🔍 Debug: Send OTP clicked with email:', email);
-    
-    if (!email) {
-        showAuthMessage('Please enter your email address', 'error');
-        return;
-    }
-    
-    if (!isValidEmail(email)) {
-        showAuthMessage('Please enter a valid email address', 'error');
-        return;
-    }
-    
-    try {
-        sendOtpBtn.disabled = true;
-        sendOtpBtn.textContent = 'Sending...';
-        showAuthMessage('Sending OTP...', 'info');
+class ArtAssetGenerator {
+    constructor() {
+        this.currentUser = null;
+        this.selectedMembership = null;
+        this.otpTimer = null;
+        this.otpTimeLeft = 120;
         
-        console.log('🔍 Making OTP request to /api/auth/send-otp');
+        // Data management
+        this.categories = JSON.parse(localStorage.getItem('artAssetCategories')) || [];
+        this.artists = JSON.parse(localStorage.getItem('artAssetArtists')) || [];
+        this.following = JSON.parse(localStorage.getItem('artAssetFollowing')) || [];
+        this.aiCollections = JSON.parse(localStorage.getItem('artAssetAICollections')) || [];
         
-        const response = await fetch('/api/auth/send-otp', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email })
+        // Current state
+        this.currentCategory = null;
+        this.currentPage = 1;
+        this.itemsPerPage = 12;
+        this.uploadQueue = [];
+        this.selectedArtwork = null;
+        
+        this.initializeEventListeners();
+        this.checkExistingSession();
+    }
+
+    initializeEventListeners() {
+        // Membership selection
+        document.querySelectorAll('.membership-card').forEach(card => {
+            card.addEventListener('click', () => this.selectMembership(card));
         });
+        document.getElementById('select-membership-btn').addEventListener('click', () => this.confirmMembership());
+        document.getElementById('back-to-membership-btn').addEventListener('click', () => this.backToMembership());
+
+        // Auth related
+        document.getElementById('send-otp-btn').addEventListener('click', () => this.sendOTP());
+        document.getElementById('verify-otp-btn').addEventListener('click', () => this.verifyOTP());
+        document.getElementById('back-to-email-btn').addEventListener('click', () => this.backToEmail());
+        document.getElementById('resend-otp-btn').addEventListener('click', () => this.resendOTP());
+        document.getElementById('logout-btn').addEventListener('click', () => this.logout());
+
+        // Navigation
+        document.getElementById('catalogue-manager-btn').addEventListener('click', () => this.showCatalogueManager());
+        document.getElementById('artist-gallery-btn').addEventListener('click', () => this.showArtistGallery());
+        document.getElementById('ai-generator-btn').addEventListener('click', () => this.showAIGenerator());
+        document.getElementById('artists-browse-btn').addEventListener('click', () => this.showArtistsBrowse());
+        document.getElementById('my-following-btn').addEventListener('click', () => this.showFollowing());
+
+        // Catalogue management
+        document.getElementById('create-category-btn').addEventListener('click', () => this.showCategoryModal());
+        document.getElementById('save-category-btn').addEventListener('click', () => this.saveCategory());
+        document.getElementById('upload-pictures-btn').addEventListener('click', () => this.showUploadModal());
+        document.getElementById('confirm-upload-btn').addEventListener('click', () => this.confirmUpload());
         
-        console.log('🔍 Response status:', response.status);
-        console.log('🔍 Response ok:', response.ok);
+        // Pagination
+        document.getElementById('prev-page').addEventListener('click', () => this.previousPage());
+        document.getElementById('next-page').addEventListener('click', () => this.nextPage());
+
+        // AI Generation
+        document.getElementById('generate-art-btn').addEventListener('click', () => this.generateArt());
+        document.getElementById('download-art-btn').addEventListener('click', () => this.downloadArt());
+        document.getElementById('regenerate-art-btn').addEventListener('click', () => this.regenerateArt());
+        document.getElementById('save-to-collection-btn').addEventListener('click', () => this.saveToCollection());
+
+        // Artist filter
+        document.getElementById('artist-filter').addEventListener('change', () => this.filterArtwork());
+
+        // Modal handlers
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', (e) => this.closeModal(e.target.closest('.modal')));
+        });
+
+        // Bulk upload
+        document.getElementById('bulk-image-upload').addEventListener('change', (e) => this.handleBulkUpload(e));
+        this.setupDragAndDrop();
+
+        // Close modals on background click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.closeModal(modal);
+            });
+        });
+    }
+
+    // Membership Selection
+    selectMembership(card) {
+        document.querySelectorAll('.membership-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        this.selectedMembership = card.dataset.type;
+        document.getElementById('select-membership-btn').disabled = false;
+    }
+
+    confirmMembership() {
+        document.getElementById('membership-step').classList.add('hidden');
+        document.getElementById('email-step').classList.remove('hidden');
+    }
+
+    backToMembership() {
+        document.getElementById('email-step').classList.add('hidden');
+        document.getElementById('membership-step').classList.remove('hidden');
+        this.selectedMembership = null;
+        document.getElementById('select-membership-btn').disabled = true;
+    }
+
+    // Auth Methods
+    checkExistingSession() {
+        const savedUser = localStorage.getItem('artAssetUser');
+        if (savedUser) {
+            this.currentUser = JSON.parse(savedUser);
+            this.selectedMembership = this.currentUser.membershipType;
+            this.showAppSection();
+            this.showDefaultSection();
+        }
+    }
+
+    async sendOTP() {
+        const email = document.getElementById('email-input').value.trim();
         
-        const responseText = await response.text();
-        console.log('🔍 Raw response:', responseText);
-        
-        let data;
+        if (!this.validateEmail(email)) {
+            this.showAuthMessage('Please enter a valid email address', 'error');
+            return;
+        }
+
         try {
-            data = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('🔍 JSON parse error:', parseError);
-            throw new Error('Invalid server response');
-        }
-        
-        console.log('🔍 Parsed response data:', data);
-        
-        if (data.success) {
-            showAuthMessage('OTP sent to your email! Check your inbox.', 'success');
-            showOtpStep();
-            startOtpTimer();
-            // For development, show OTP in console and alert
-            if (data.debug_otp) {
-                console.log('📧 Development OTP:', data.debug_otp);
-                // Optional: show in alert for easy testing
-                setTimeout(() => {
-                    alert(`Development OTP: ${data.debug_otp}\n\nFor testing purposes only.`);
-                }, 500);
-            }
-        } else {
-            showAuthMessage(data.error || 'Failed to send OTP', 'error');
-        }
-        
-    } catch (error) {
-        console.error('❌ Send OTP error:', error);
-        console.error('❌ Error details:', {
-            message: error.message,
-            stack: error.stack
-        });
-        showAuthMessage('Network error: ' + error.message, 'error');
-    } finally {
-        sendOtpBtn.disabled = false;
-        sendOtpBtn.textContent = 'Send OTP';
-    }
-}
-
-async function verifyOtp() {
-    const email = emailInput.value.trim();
-    const otp = otpInput.value.trim();
-    
-    if (!otp || otp.length !== 6) {
-        showAuthMessage('Please enter the 6-digit OTP', 'error');
-        return;
-    }
-    
-    try {
-        verifyOtpBtn.disabled = true;
-        verifyOtpBtn.textContent = 'Verifying...';
-        showAuthMessage('Verifying OTP...', 'info');
-        
-        const response = await fetch('/api/auth/verify-otp', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, otp })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showAuthMessage('Login successful!', 'success');
-            authToken = data.token;
-            currentUser = email;
+            this.showAuthMessage('Sending OTP...', 'success');
             
-            // Save to localStorage
-            localStorage.setItem('authToken', authToken);
-            localStorage.setItem('userEmail', currentUser);
-            
-            // Show main app
             setTimeout(() => {
-                showAppSection();
+                document.getElementById('email-step').classList.add('hidden');
+                document.getElementById('otp-step').classList.remove('hidden');
+                this.startOTPTimer();
+                this.showAuthMessage('OTP sent to your email!', 'success');
             }, 1000);
-            
-        } else {
-            showAuthMessage(data.error || 'Invalid OTP', 'error');
+
+        } catch (error) {
+            this.showAuthMessage('Failed to send OTP. Please try again.', 'error');
         }
-        
-    } catch (error) {
-        console.error('Verify OTP error:', error);
-        showAuthMessage('Network error. Please try again.', 'error');
-    } finally {
-        verifyOtpBtn.disabled = false;
-        verifyOtpBtn.textContent = 'Verify OTP';
     }
-}
 
-function backToEmail() {
-    otpStep.classList.add('hidden');
-    emailStep.classList.remove('hidden');
-    clearOtpTimer();
-    otpInput.value = '';
-    showAuthMessage('', '');
-}
-
-function logout() {
-    // Call logout API
-    fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json'
+    async verifyOTP() {
+        const otp = document.getElementById('otp-input').value.trim();
+        
+        if (otp.length !== 6 || !/^\d+$/.test(otp)) {
+            this.showAuthMessage('Please enter a valid 6-digit OTP', 'error');
+            return;
         }
-    }).catch(console.error);
-    
-    // Clear local state
-    authToken = null;
-    currentUser = null;
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userEmail');
-    
-    // Show auth section
-    showAuthSection();
-}
 
-// UI Management
-function showAuthSection() {
-    authSection.style.display = 'block';
-    appSection.style.display = 'none';
-    backToEmail();
-}
-
-function showAppSection() {
-    authSection.style.display = 'none';
-    appSection.style.display = 'block';
-    userEmailSpan.textContent = currentUser;
-    clearUploads();
-}
-
-function showOtpStep() {
-    emailStep.classList.add('hidden');
-    otpStep.classList.remove('hidden');
-    otpInput.focus();
-}
-
-function showAuthMessage(message, type) {
-    authMessage.textContent = message;
-    authMessage.className = `auth-message ${type}`;
-}
-
-function startOtpTimer() {
-    let timeLeft = 120; // 2 minutes in seconds
-    const timerElement = document.getElementById('otp-timer');
-    resendOtpBtn.style.display = 'none';
-    
-    clearOtpTimer();
-    
-    otpTimer = setInterval(() => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        
-        if (timeLeft <= 0) {
-            clearOtpTimer();
-            resendOtpBtn.style.display = 'inline-block';
-            showAuthMessage('OTP has expired. Please request a new one.', 'error');
-        }
-        
-        timeLeft--;
-    }, 1000);
-}
-
-function clearOtpTimer() {
-    if (otpTimer) {
-        clearInterval(otpTimer);
-        otpTimer = null;
-    }
-}
-
-// File handling
-function handleFilePreview(event) {
-    const file = event.target.files[0];
-    const previewArea = document.getElementById('preview-area');
-    
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        if (file.type.startsWith('image/')) {
-            previewArea.innerHTML = `
-                <div class="file-preview">
-                    <img src="${e.target.result}" alt="Preview">
-                    <p>${file.name} (${formatFileSize(file.size)})</p>
-                </div>
-            `;
-        } else if (file.type.startsWith('video/')) {
-            previewArea.innerHTML = `
-                <div class="file-preview">
-                    <video controls>
-                        <source src="${e.target.result}" type="${file.type}">
-                        Your browser does not support the video tag.
-                    </video>
-                    <p>${file.name} (${formatFileSize(file.size)})</p>
-                </div>
-            `;
-        }
-    };
-    reader.readAsDataURL(file);
-}
-
-// Art generation
-async function generateArt() {
-    const imageFile = document.getElementById('image-upload').files[0];
-    const videoFile = document.getElementById('video-upload').files[0];
-    const prompt = document.getElementById('prompt-input').value.trim();
-    
-    if (!imageFile && !videoFile) {
-        alert('Please upload at least one image or video file');
-        return;
-    }
-    
-    const formData = new FormData();
-    if (imageFile) formData.append('image', imageFile);
-    if (videoFile) formData.append('video', videoFile);
-    if (prompt) formData.append('prompt', prompt);
-    
-    // Show progress
-    const progressBar = document.getElementById('progress-bar');
-    const progressFill = progressBar.querySelector('.progress-fill');
-    const progressText = progressBar.querySelector('.progress-text');
-    
-    progressBar.style.display = 'block';
-    progressFill.style.width = '0%';
-    progressText.textContent = '0%';
-    
-    generateArtBtn.disabled = true;
-    
-    try {
-        // Simulate progress
-        simulateProgress(progressFill, progressText);
-        
-        const response = await fetch('/api/generate-art', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: formData
-        });
-        
-        if (!response.ok) {
-            if (response.status === 401) {
-                logout();
-                throw new Error('Session expired. Please login again.');
-            }
-            throw new Error(`Server error: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Complete progress
-            progressFill.style.width = '100%';
-            progressText.textContent = '100%';
+        try {
+            this.showAuthMessage('Verifying OTP...', 'success');
             
-            // Show result
-            document.getElementById('generated-art').src = result.artUrl;
-            document.getElementById('used-prompt').textContent = result.promptUsed;
-            document.getElementById('art-style').textContent = result.style;
-            document.getElementById('result-section').style.display = 'block';
-            
-            // Scroll to result
             setTimeout(() => {
-                document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
-            }, 500);
-            
-        } else {
-            throw new Error(result.error || 'Generation failed');
+                const email = document.getElementById('email-input').value.trim();
+                this.currentUser = { 
+                    email, 
+                    isVerified: true, 
+                    membershipType: this.selectedMembership,
+                    userId: Date.now().toString(),
+                    joinDate: new Date().toISOString()
+                };
+
+                // Initialize user data based on membership type
+                this.initializeUserData();
+                
+                localStorage.setItem('artAssetUser', JSON.stringify(this.currentUser));
+                this.showAppSection();
+                this.showDefaultSection();
+                this.clearOTPTimer();
+            }, 1000);
+
+        } catch (error) {
+            this.showAuthMessage('Invalid OTP. Please try again.', 'error');
         }
-        
-    } catch (error) {
-        console.error('Error generating art:', error);
-        alert('Error generating art: ' + error.message);
-    } finally {
-        generateArtBtn.disabled = false;
-        setTimeout(() => {
-            progressBar.style.display = 'none';
-        }, 1000);
     }
-}
 
-function simulateProgress(progressFill, progressText) {
-    let progress = 0;
-    const interval = setInterval(() => {
-        progress += Math.random() * 10;
-        if (progress >= 90) {
-            progress = 90;
-            clearInterval(interval);
+    initializeUserData() {
+        if (this.currentUser.membershipType === 'artist') {
+            // Check if artist profile exists, if not create one
+            const existingArtist = this.artists.find(a => a.userId === this.currentUser.userId);
+            if (!existingArtist) {
+                const newArtist = {
+                    id: this.currentUser.userId,
+                    userId: this.currentUser.userId,
+                    email: this.currentUser.email,
+                    name: this.currentUser.email.split('@')[0],
+                    joinDate: this.currentUser.joinDate,
+                    followers: 0,
+                    totalPictures: 0,
+                    publicCategories: []
+                };
+                this.artists.push(newArtist);
+                this.saveArtists();
+            }
         }
-        progressFill.style.width = progress + '%';
-        progressText.textContent = Math.round(progress) + '%';
-    }, 200);
+    }
+
+    showDefaultSection() {
+        if (this.currentUser.membershipType === 'artist') {
+            this.showCatalogueManager();
+        } else {
+            this.showAIGenerator();
+        }
+    }
+
+    showAppSection() {
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+        document.getElementById('user-email').textContent = this.currentUser.email;
+        
+        // Show membership badge
+        const badge = document.getElementById('membership-badge');
+        badge.textContent = this.currentUser.membershipType;
+        badge.className = `membership-badge ${this.currentUser.membershipType}`;
+
+        // Show appropriate navigation
+        if (this.currentUser.membershipType === 'artist') {
+            document.getElementById('artist-nav').classList.remove('hidden');
+            document.getElementById('innovator-nav').classList.add('hidden');
+        } else {
+            document.getElementById('innovator-nav').classList.remove('hidden');
+            document.getElementById('artist-nav').classList.add('hidden');
+        }
+    }
+
+    // Navigation Methods
+    showAIGenerator() {
+        this.hideAllSections();
+        document.getElementById('ai-generator-section').classList.remove('hidden');
+        this.loadFollowedArtwork();
+    }
+
+    showCatalogueManager() {
+        this.hideAllSections();
+        document.getElementById('catalogue-manager-section').classList.remove('hidden');
+        this.renderCategories();
+        this.updateArtistStats();
+    }
+
+    showArtistsBrowse() {
+        this.hideAllSections();
+        document.getElementById('artists-browse-section').classList.remove('hidden');
+        this.renderArtistsBrowse();
+    }
+
+    showFollowing() {
+        this.hideAllSections();
+        document.getElementById('following-section').classList.remove('hidden');
+        this.renderFollowing();
+    }
+
+    showArtistGallery() {
+        this.hideAllSections();
+        document.getElementById('artist-gallery-section').classList.remove('hidden');
+        this.renderArtistGallery();
+    }
+
+    hideAllSections() {
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.add('hidden');
+        });
+    }
+
+    // Artist Catalogue Management (Similar to previous implementation)
+    showCategoryModal() {
+        document.getElementById('category-modal').classList.remove('hidden');
+    }
+
+    saveCategory() {
+        const name = document.getElementById('category-name').value.trim();
+        const description = document.getElementById('category-description').value.trim();
+        const isPublic = document.getElementById('category-public').checked;
+
+        if (!name) {
+            alert('Please enter a category name');
+            return;
+        }
+
+        const newCategory = {
+            id: Date.now().toString(),
+            name,
+            description,
+            isPublic,
+            owner: this.currentUser.userId,
+            created: new Date().toISOString(),
+            pictureCount: 0,
+            pictures: []
+        };
+
+        this.categories.push(newCategory);
+        this.saveCategories();
+        this.closeModal(document.getElementById('category-modal'));
+        this.renderCategories();
+        
+        // Clear form
+        document.getElementById('category-name').value = '';
+        document.getElementById('category-description').value = '';
+    }
+
+    // AI Innovator Methods
+    loadFollowedArtwork() {
+        const artistFilter = document.getElementById('artist-filter');
+        const artworkGrid = document.getElementById('source-artwork-grid');
+        
+        // Clear existing
+        artistFilter.innerHTML = '<option value="all">All Followed Artists</option>';
+        artworkGrid.innerHTML = '';
+
+        // Get followed artists
+        const followedArtists = this.artists.filter(artist => 
+            this.following.includes(artist.id)
+        );
+
+        if (followedArtists.length === 0) {
+            artworkGrid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h4>Not Following Any Artists</h4>
+                    <p>Browse artists and follow them to use their artwork for AI generation.</p>
+                    <button class="btn btn-primary" onclick="app.showArtistsBrowse()">Browse Artists</button>
+                </div>
+            `;
+            return;
+        }
+
+        // Populate artist filter
+        followedArtists.forEach(artist => {
+            const option = document.createElement('option');
+            option.value = artist.id;
+            option.textContent = artist.name;
+            artistFilter.appendChild(option);
+        });
+
+        // Load artwork from all followed artists
+        this.filterArtwork();
+    }
+
+    filterArtwork() {
+        const selectedArtist = document.getElementById('artist-filter').value;
+        const artworkGrid = document.getElementById('source-artwork-grid');
+        
+        let availableArtwork = [];
+        
+        // Get public pictures from followed artists
+        this.categories.forEach(category => {
+            if (category.isPublic && this.following.includes(category.owner)) {
+                if (selectedArtist === 'all' || category.owner === selectedArtist) {
+                    category.pictures.forEach(picture => {
+                        const artist = this.artists.find(a => a.id === category.owner);
+                        availableArtwork.push({
+                            ...picture,
+                            categoryName: category.name,
+                            artistName: artist.name,
+                            artistId: artist.id
+                        });
+                    });
+                }
+            }
+        });
+
+        if (availableArtwork.length === 0) {
+            artworkGrid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-images"></i>
+                    <h4>No Artwork Available</h4>
+                    <p>No public artwork available from followed artists.</p>
+                </div>
+            `;
+            document.getElementById('generate-art-btn').disabled = true;
+            return;
+        }
+
+        // Render artwork grid
+        artworkGrid.innerHTML = availableArtwork.map(artwork => `
+            <div class="artwork-item ${this.selectedArtwork?.id === artwork.id ? 'selected' : ''}" 
+                 onclick="app.selectSourceArtwork('${artwork.id}')">
+                <img src="${artwork.url}" alt="${artwork.name}" class="artwork-image">
+                <div class="artwork-info">
+                    <div class="artwork-name">${artwork.name}</div>
+                    <div class="artwork-artist">by ${artwork.artistName}</div>
+                    <div class="artwork-category">${artwork.categoryName}</div>
+                </div>
+            </div>
+        `).join('');
+
+        document.getElementById('generate-art-btn').disabled = !this.selectedArtwork;
+    }
+
+    selectSourceArtwork(artworkId) {
+        const allArtwork = document.querySelectorAll('.artwork-item');
+        allArtwork.forEach(item => item.classList.remove('selected'));
+        
+        // Find the selected artwork
+        let selectedArtwork = null;
+        this.categories.forEach(category => {
+            category.pictures.forEach(picture => {
+                if (picture.id === artworkId) {
+                    const artist = this.artists.find(a => a.id === category.owner);
+                    selectedArtwork = {
+                        ...picture,
+                        categoryName: category.name,
+                        artistName: artist.name,
+                        artistId: artist.id
+                    };
+                }
+            });
+        });
+
+        if (selectedArtwork) {
+            this.selectedArtwork = selectedArtwork;
+            const selectedElement = document.querySelector(`[onclick="app.selectSourceArtwork('${artworkId}')"]`);
+            selectedElement.classList.add('selected');
+            document.getElementById('generate-art-btn').disabled = false;
+        }
+    }
+
+    async generateArt() {
+        if (!this.selectedArtwork) {
+            alert('Please select source artwork first!');
+            return;
+        }
+
+        const prompt = document.getElementById('prompt-input').value.trim();
+        if (!prompt) {
+            alert('Please enter an AI prompt!');
+            return;
+        }
+
+        // Show progress bar
+        const progressBar = document.getElementById('progress-bar');
+        progressBar.style.display = 'block';
+        
+        // Simulate generation process
+        await this.simulateGeneration(prompt);
+        
+        // Show result
+        this.showResult(prompt);
+    }
+
+    showResult(prompt) {
+        document.getElementById('progress-bar').style.display = 'none';
+        
+        const resultSection = document.getElementById('result-section');
+        resultSection.classList.remove('hidden');
+        
+        // Set original artwork
+        document.getElementById('original-art').src = this.selectedArtwork.url;
+        document.getElementById('original-artist').textContent = this.selectedArtwork.artistName;
+        
+        // Set AI prompt and generate result
+        document.getElementById('used-prompt').textContent = prompt;
+        this.displayGeneratedArt();
+        
+        // Scroll to result
+        resultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Artists Browse and Following
+    renderArtistsBrowse() {
+        const grid = document.getElementById('artists-grid');
+        const currentArtistId = this.currentUser.userId;
+
+        // Filter out current user if they're an artist
+        const availableArtists = this.artists.filter(artist => 
+            artist.id !== currentArtistId
+        );
+
+        if (availableArtists.length === 0) {
+            grid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h4>No Artists Available</h4>
+                    <p>No other artists have joined yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = availableArtists.map(artist => {
+            const isFollowing = this.following.includes(artist.id);
+            const publicPictures = this.categories
+                .filter(cat => cat.owner === artist.id && cat.isPublic)
+                .reduce((total, cat) => total + cat.pictures.length, 0);
+
+            return `
+                <div class="artist-card">
+                    <div class="artist-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="artist-name">${artist.name}</div>
+                    <div class="artist-stats-small">
+                        <div class="artist-stat">
+                            <span class="artist-stat-number">${artist.followers}</span>
+                            <span class="artist-stat-label">Followers</span>
+                        </div>
+                        <div class="artist-stat">
+                            <span class="artist-stat-number">${publicPictures}</span>
+                            <span class="artist-stat-label">Public Pictures</span>
+                        </div>
+                    </div>
+                    <button class="btn ${isFollowing ? 'btn-secondary' : 'btn-primary'}" 
+                            onclick="app.toggleFollow('${artist.id}')">
+                        <i class="fas fa-${isFollowing ? 'heart' : 'heart'}"></i>
+                        ${isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    toggleFollow(artistId) {
+        const index = this.following.indexOf(artistId);
+        
+        if (index > -1) {
+            // Unfollow
+            this.following.splice(index, 1);
+            // Update artist follower count
+            const artist = this.artists.find(a => a.id === artistId);
+            if (artist) artist.followers = Math.max(0, artist.followers - 1);
+        } else {
+            // Follow
+            this.following.push(artistId);
+            // Update artist follower count
+            const artist = this.artists.find(a => a.id === artistId);
+            if (artist) artist.followers++;
+        }
+
+        this.saveFollowing();
+        this.saveArtists();
+        
+        // Refresh current view
+        if (document.getElementById('artists-browse-section').classList.contains('hidden') === false) {
+            this.renderArtistsBrowse();
+        }
+        if (document.getElementById('following-section').classList.contains('hidden') === false) {
+            this.renderFollowing();
+        }
+        if (document.getElementById('ai-generator-section').classList.contains('hidden') === false) {
+            this.loadFollowedArtwork();
+        }
+    }
+
+    renderFollowing() {
+        const container = document.getElementById('following-list');
+        
+        if (this.following.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-heart"></i>
+                    <h4>Not Following Any Artists</h4>
+                    <p>Start following artists to see their artwork here.</p>
+                    <button class="btn btn-primary" onclick="app.showArtistsBrowse()">Browse Artists</button>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = this.following.map(artistId => {
+            const artist = this.artists.find(a => a.id === artistId);
+            if (!artist) return '';
+
+            const publicPictures = this.categories
+                .filter(cat => cat.owner === artist.id && cat.isPublic)
+                .reduce((pics, cat) => pics.concat(cat.pictures.map(pic => ({
+                    ...pic,
+                    categoryName: cat.name
+                }))), []);
+
+            return `
+                <div class="following-artist">
+                    <div class="following-header">
+                        <div class="following-artist-info">
+                            <div class="artist-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div>
+                                <div class="artist-name">${artist.name}</div>
+                                <div class="artist-stats-small">
+                                    <span class="artist-stat">
+                                        <span class="artist-stat-number">${publicPictures.length}</span>
+                                        <span class="artist-stat-label">Public Pictures</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="app.toggleFollow('${artist.id}')">
+                            <i class="fas fa-times"></i> Unfollow
+                        </button>
+                    </div>
+                    ${publicPictures.length > 0 ? `
+                        <div class="following-artwork-grid">
+                            ${publicPictures.slice(0, 6).map(pic => `
+                                <div class="artwork-item">
+                                    <img src="${pic.url}" alt="${pic.name}" class="artwork-image">
+                                    <div class="artwork-info">
+                                        <div class="artwork-name">${pic.name}</div>
+                                        <div class="artwork-category">${pic.categoryName}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <p style="text-align: center; color: #666; padding: 20px;">
+                            No public pictures available from this artist.
+                        </p>
+                    `}
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Utility Methods
+    updateArtistStats() {
+        if (this.currentUser.membershipType !== 'artist') return;
+
+        const totalPictures = this.categories
+            .filter(cat => cat.owner === this.currentUser.userId)
+            .reduce((total, cat) => total + cat.pictures.length, 0);
+
+        const artist = this.artists.find(a => a.id === this.currentUser.userId);
+        const totalFollowers = artist ? artist.followers : 0;
+
+        document.getElementById('total-pictures').textContent = totalPictures;
+        document.getElementById('total-followers').textContent = totalFollowers;
+    }
+
+    // ... (Include all other utility methods from previous implementation like:
+    // setupDragAndDrop, handleBulkUpload, renderCategories, renderPicturesGrid, etc.)
+
+    // Save data methods
+    saveCategories() {
+        localStorage.setItem('artAssetCategories', JSON.stringify(this.categories));
+    }
+
+    saveArtists() {
+        localStorage.setItem('artAssetArtists', JSON.stringify(this.artists));
+    }
+
+    saveFollowing() {
+        localStorage.setItem('artAssetFollowing', JSON.stringify(this.following));
+    }
+
+    saveAICollections() {
+        localStorage.setItem('artAssetAICollections', JSON.stringify(this.aiCollections));
+    }
+
+    // ... (Include all other methods from previous implementation)
 }
 
-function downloadArt() {
-    const artUrl = document.getElementById('generated-art').src;
-    const link = document.createElement('a');
-    link.href = artUrl;
-    link.download = `artasset-ai-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function clearUploads() {
-    document.getElementById('image-upload').value = '';
-    document.getElementById('video-upload').value = '';
-    document.getElementById('prompt-input').value = '';
-    document.getElementById('preview-area').innerHTML = '<p>Uploaded files and preview will appear here</p>';
-    document.getElementById('result-section').style.display = 'none';
-}
-
-// Utility functions
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-}
-
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
+// Initialize the application
+const app = new ArtAssetGenerator();

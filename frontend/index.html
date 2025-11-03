@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ArtAsset AI Generator</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
@@ -12,15 +13,48 @@
         
         <!-- Auth Section -->
         <div id="auth-section" class="auth-section">
-            <h2>Login to Generate Art</h2>
+            <h2>Login to ArtAsset</h2>
+            
+            <!-- Membership Type Selection -->
+            <div id="membership-step">
+                <div class="form-group">
+                    <label>Select Membership Type:</label>
+                    <div class="membership-options">
+                        <div class="membership-card" data-type="artist">
+                            <i class="fas fa-palette"></i>
+                            <h3>Artist</h3>
+                            <p>Create catalogues and upload your artwork</p>
+                            <ul>
+                                <li>Create picture catalogues</li>
+                                <li>Upload your artwork</li>
+                                <li>Organize by categories</li>
+                                <li>Get followed by AI Innovators</li>
+                            </ul>
+                        </div>
+                        <div class="membership-card" data-type="innovator">
+                            <i class="fas fa-robot"></i>
+                            <h3>AI Innovator</h3>
+                            <p>Generate AI art from artists' work</p>
+                            <ul>
+                                <li>Follow artists</li>
+                                <li>Use artwork for AI generation</li>
+                                <li>Create AI transformations</li>
+                                <li>Download generated art</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <button id="select-membership-btn" class="btn" disabled>Continue with Selected Membership</button>
+            </div>
             
             <!-- Email Input Step -->
-            <div id="email-step">
+            <div id="email-step" class="hidden">
                 <div class="form-group">
                     <label for="email-input">Email Address:</label>
                     <input type="email" id="email-input" placeholder="Enter your email address" required>
                 </div>
                 <button id="send-otp-btn" class="btn">Send OTP</button>
+                <button id="back-to-membership-btn" class="btn btn-secondary">Back to Membership Selection</button>
             </div>
             
             <!-- OTP Input Step (Initially Hidden) -->
@@ -41,56 +75,268 @@
         </div>
         
         <!-- Main App Section (Initially Hidden) -->
-        <div id="app-section" class="app-section">
+        <div id="app-section" class="app-section hidden">
+            <!-- Header with User Info -->
             <div class="user-info">
-                <span>Welcome, <span id="user-email"></span></span>
-                <button id="logout-btn" class="btn logout-btn">Logout</button>
-            </div>
-            
-            <div id="upload-section" class="upload-section">
-                <div class="upload-group">
-                    <label for="image-upload">Upload Image:</label>
-                    <input type="file" id="image-upload" accept="image/*" />
+                <div class="user-details">
+                    <span class="welcome-text">Welcome, <span id="user-email"></span></span>
+                    <span class="membership-badge" id="membership-badge"></span>
                 </div>
-                
-                <div class="upload-group">
-                    <label for="video-upload">Upload Video Clip:</label>
-                    <input type="file" id="video-upload" accept="video/*" />
-                </div>
-                
-                <div class="upload-group">
-                    <label for="prompt-input">Custom AI Prompt (Optional):</label>
-                    <textarea 
-                        id="prompt-input" 
-                        placeholder="Describe the art style, colors, theme, or specific elements you want..."
-                        rows="4"
-                    ></textarea>
-                    <div class="prompt-tips">
-                        <strong>Prompt Tips:</strong> Be specific about style, colors, mood, and composition!
+                <div class="user-actions">
+                    <!-- Artist Navigation -->
+                    <div id="artist-nav" class="nav-buttons hidden">
+                        <button id="catalogue-manager-btn" class="btn btn-primary">
+                            <i class="fas fa-images"></i> My Catalogue
+                        </button>
+                        <button id="artist-gallery-btn" class="btn btn-secondary">
+                            <i class="fas fa-eye"></i> View Gallery
+                        </button>
                     </div>
-                </div>
-                
-                <button id="generate-art-btn" class="btn generate-btn">Generate Art</button>
-                
-                <div id="preview-area" class="preview-area">
-                    <p>Uploaded files and preview will appear here</p>
-                </div>
-                <div id="progress-bar" class="progress-bar">
-                    <div class="progress-fill">
-                        <span class="progress-text">0%</span>
+                    
+                    <!-- AI Innovator Navigation -->
+                    <div id="innovator-nav" class="nav-buttons hidden">
+                        <button id="ai-generator-btn" class="btn btn-primary">
+                            <i class="fas fa-robot"></i> AI Generator
+                        </button>
+                        <button id="artists-browse-btn" class="btn btn-secondary">
+                            <i class="fas fa-search"></i> Browse Artists
+                        </button>
+                        <button id="my-following-btn" class="btn btn-secondary">
+                            <i class="fas fa-heart"></i> Following
+                        </button>
                     </div>
+                    
+                    <button id="logout-btn" class="btn logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
                 </div>
             </div>
-            
-            <div id="result-section" class="result-section" style="display:none;">
-                <h2>Generated Art</h2>
-                <img id="generated-art" class="generated-art" />
-                <div class="result-info">
-                    <p><strong>AI Prompt Used:</strong> <span id="used-prompt"></span></p>
-                    <p><strong>Style:</strong> <span id="art-style"></span></p>
+
+            <!-- AI Generator Section (Innovator Only) -->
+            <div id="ai-generator-section" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-robot"></i> AI Art Generator</h2>
+                    <p>Select artwork from followed artists and transform it with AI</p>
                 </div>
-                <button id="download-art-btn" class="btn download-btn">Download Art</button>
-                <button id="regenerate-art-btn" class="btn generate-btn">Regenerate with Changes</button>
+
+                <div class="generator-container">
+                    <!-- Source Selection -->
+                    <div class="source-selection">
+                        <h3>1. Select Source Artwork</h3>
+                        <div class="artwork-browser">
+                            <div class="artists-filter">
+                                <label>Filter by Artist:</label>
+                                <select id="artist-filter">
+                                    <option value="all">All Followed Artists</option>
+                                </select>
+                            </div>
+                            <div class="artwork-grid" id="source-artwork-grid">
+                                <!-- Source artwork will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Input -->
+                    <div class="prompt-section">
+                        <h3>2. Enter AI Prompt</h3>
+                        <div class="form-group">
+                            <textarea 
+                                id="prompt-input" 
+                                placeholder="Describe the transformation you want... (e.g., 'convert to oil painting style', 'make it more abstract', 'change colors to sunset theme')"
+                                rows="4"
+                            ></textarea>
+                            <div class="prompt-tips">
+                                <strong>Prompt Tips:</strong> Be specific about style, colors, mood, and composition!
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generation Controls -->
+                    <div class="generation-controls">
+                        <button id="generate-art-btn" class="btn generate-btn" disabled>
+                            <i class="fas fa-magic"></i> Generate AI Art
+                        </button>
+                    </div>
+
+                    <!-- Progress -->
+                    <div id="progress-bar" class="progress-bar">
+                        <div class="progress-fill">
+                            <span class="progress-text">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Results -->
+                    <div id="result-section" class="result-section hidden">
+                        <h3>Generated Artwork</h3>
+                        <div class="comparison-view">
+                            <div class="comparison-item">
+                                <h4>Original</h4>
+                                <img id="original-art" class="comparison-image" />
+                                <div class="art-info">
+                                    <strong>Artist:</strong> <span id="original-artist"></span>
+                                </div>
+                            </div>
+                            <div class="comparison-item">
+                                <h4>AI Generated</h4>
+                                <img id="generated-art" class="generated-art" />
+                                <div class="art-info">
+                                    <strong>AI Prompt:</strong> <span id="used-prompt"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="result-actions">
+                            <button id="download-art-btn" class="btn download-btn">
+                                <i class="fas fa-download"></i> Download AI Art
+                            </button>
+                            <button id="regenerate-art-btn" class="btn generate-btn">
+                                <i class="fas fa-redo"></i> Regenerate
+                            </button>
+                            <button id="save-to-collection-btn" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save to Collection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Catalogue Manager Section (Artist Only) -->
+            <div id="catalogue-manager-section" class="content-section hidden">
+                <div class="catalogue-header">
+                    <h2><i class="fas fa-images"></i> My Picture Catalogue</h2>
+                    <div class="artist-stats">
+                        <div class="stat">
+                            <span class="stat-number" id="total-pictures">0</span>
+                            <span class="stat-label">Total Pictures</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number" id="total-followers">0</span>
+                            <span class="stat-label">Followers</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="catalogue-actions">
+                    <button id="create-category-btn" class="btn btn-primary">
+                        <i class="fas fa-folder-plus"></i> Create New Category
+                    </button>
+                    <button id="upload-pictures-btn" class="btn btn-success">
+                        <i class="fas fa-upload"></i> Upload Pictures
+                    </button>
+                </div>
+
+                <!-- Categories and Pictures Grid -->
+                <div class="catalogue-content">
+                    <div class="categories-sidebar">
+                        <h3>Categories</h3>
+                        <div class="categories-list" id="categories-list">
+                            <!-- Categories will be dynamically added here -->
+                        </div>
+                    </div>
+
+                    <div class="pictures-main">
+                        <div class="section-header">
+                            <h3 id="current-category-title">My Pictures</h3>
+                            <div class="pagination">
+                                <button id="prev-page" class="btn btn-secondary" disabled>
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <span id="page-info">Page 1 of 1</span>
+                                <button id="next-page" class="btn btn-secondary" disabled>
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="pictures-grid" id="pictures-grid">
+                            <!-- Pictures will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Artists Browse Section (Innovator Only) -->
+            <div id="artists-browse-section" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-search"></i> Browse Artists</h2>
+                    <p>Discover and follow artists to use their artwork for AI generation</p>
+                </div>
+
+                <div class="artists-grid" id="artists-grid">
+                    <!-- Artists will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Following Section (Innovator Only) -->
+            <div id="following-section" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-heart"></i> Following</h2>
+                    <p>Artists you're following and their artwork</p>
+                </div>
+
+                <div class="following-list" id="following-list">
+                    <!-- Following artists will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Artist Gallery Section (Artist Only) -->
+            <div id="artist-gallery-section" class="content-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-eye"></i> Public Gallery</h2>
+                    <p>How your artwork appears to AI Innovators</p>
+                </div>
+
+                <div class="gallery-view" id="gallery-view">
+                    <!-- Public gallery view -->
+                </div>
+            </div>
+            <!-- Category Creation Modal -->
+            <div id="category-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Create New Category</h3>
+                        <button class="close-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="category-name">Category Name:</label>
+                            <input type="text" id="category-name" placeholder="Enter category name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="category-description">Description:</label>
+                            <textarea id="category-description" placeholder="Enter category description" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="category-public"> Make this category public to AI Innovators
+                            </label>
+                        </div>
+                        <button id="save-category-btn" class="btn btn-primary">Create Category</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Modal -->
+            <div id="upload-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Upload Pictures to <span id="upload-category-name"></span></h3>
+                        <button class="close-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="upload-area" id="bulk-upload-area">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Drag & drop images here or click to browse</p>
+                            <input type="file" id="bulk-image-upload" multiple accept="image/*" style="display: none;">
+                            <button class="btn btn-secondary" onclick="document.getElementById('bulk-image-upload').click()">
+                                Browse Files
+                            </button>
+                        </div>
+                        <div id="upload-preview" class="upload-preview"></div>
+                        <button id="confirm-upload-btn" class="btn btn-primary" disabled>
+                            <i class="fas fa-upload"></i> Upload Selected Files
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
